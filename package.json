@@ -11,10 +11,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed": "node scripts/seed.mjs"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.4",
+    "jose": "^6.2.14",
     "next": "^16.4.3",
     "postgres": "^4.0.0",
     "react": "^19.3.1",

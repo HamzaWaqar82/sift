@@ -4,11 +4,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# One-off migration runner (Compose `migrate` service). Has full node_modules.
+# One-off migration + user seed runner (Compose `migrate` service). Has full node_modules.
 FROM deps AS migrator
 COPY drizzle ./drizzle
 COPY scripts ./scripts
-CMD ["node", "scripts/migrate.mjs"]
+CMD ["sh", "-c", "node scripts/migrate.mjs && node scripts/seed.mjs"]
 
 FROM deps AS build
 COPY . .

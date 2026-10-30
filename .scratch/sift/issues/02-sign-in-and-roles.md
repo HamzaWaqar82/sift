@@ -6,13 +6,13 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Four agents and one admin are seeded with hashed passwords taken from configuration; no sign-up exists
-- [ ] Sign-in sets a signed session that persists across reloads; sign-out ends it
-- [ ] Unauthenticated requests to pages and APIs (except webhook and health) are rejected or redirected
-- [ ] Repeated failed sign-ins from one address are slowed or blocked
-- [ ] The header shows the user's name and role
-- [ ] API-level tests cover: good and bad credentials, protected route rejects anonymous, rate limit trips
-- [ ] README: "left out" notes no password reset or sign-up; note that production passwords come from the server's environment file
+- [x] Four agents and one admin are seeded with hashed passwords taken from configuration; no sign-up exists
+- [x] Sign-in sets a signed session that persists across reloads; sign-out ends it
+- [x] Unauthenticated requests to pages and APIs (except webhook and health) are rejected or redirected
+- [x] Repeated failed sign-ins from one address are slowed or blocked
+- [x] The header shows the user's name and role
+- [x] API-level tests cover: good and bad credentials, protected route rejects anonymous, rate limit trips
+- [x] README: "left out" notes no password reset or sign-up; note that production passwords come from the server's environment file
 

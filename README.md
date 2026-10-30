@@ -9,6 +9,9 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Deployable skeleton: Next.js app, Postgres, a one-off `migrate` Compose service that must complete before the app starts.
 - `GET /api/health` returns `{"status":"ok","db":"up"}` (200) or `{"status":"error","db":"down"}` (503).
 - Production Compose file with Caddy serving HTTPS on an sslip.io hostname.
+- Sign-in with email and password for four seeded agents and one admin (`admin@sift.local`; agents `alice@`, `ben@`, `chloe@`, `dev@sift.local`). Passwords are bcrypt-hashed from `SEED_ADMIN_PASSWORD` / `SEED_AGENT_PASSWORD` by the seed step that runs after migrations. The session is a signed (HS256, `SESSION_SECRET`), httpOnly, SameSite=Lax cookie valid for 7 days; sign-out clears it.
+- Every page and API requires sign-in except `/api/health`, the inbound-email webhook and the sign-in endpoints (pages redirect to `/sign-in`, APIs return 401). Route handlers enforce roles on the server with `requireUser` / `requireAdmin` (403 for the wrong role).
+- Failed sign-ins are limited per client address in memory: after 5 failures in 15 minutes that address gets 429 until the window ends.
 
 ## What was left out
 
@@ -17,6 +20,8 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Claiming tickets and the Mine/Unassigned filter.
 - Managed database (RDS); Postgres runs in a container on the same host.
 - Auto-rollback of deploys.
+- Password reset and sign-up: accounts are seeded only; changing a password means editing the environment file and re-running the seed.
+- Persistent or shared rate limiting: the sign-in limit lives in memory, so it resets on restart and would not be shared across several app instances.
 
 ## Known problem and fix
 
@@ -33,6 +38,8 @@ docker compose up --build
 Open http://localhost:3000 and check http://localhost:3000/api/health. No `.env` is needed for local use; dev defaults live in `compose.yaml`. To override, `cp .env.example .env` and edit. If ports 3000/5432 are taken, set `APP_HOST_PORT` / `DB_HOST_PORT`.
 
 Every variable is documented in `.env.example`. The real `.env` is gitignored; never commit it.
+
+Sign in with a seeded account (see "What was built"). With no `.env`, the local passwords are the dev defaults in `compose.yaml`. Running outside Docker: `npm run db:migrate && npm run db:seed` (needs `DATABASE_URL`, `SEED_ADMIN_PASSWORD`, `SEED_AGENT_PASSWORD`), then `npm run dev` with `SESSION_SECRET` set.
 
 ### Running tests
 
@@ -58,7 +65,7 @@ One-time server setup:
 
 1. Launch an EC2 instance (e.g. Ubuntu, t3.small), attach an Elastic IP, and open inbound ports 22, 80 and 443 in its security group.
 2. Install Docker Engine and the Compose plugin; run `sudo systemctl enable --now docker` so containers come back after a reboot (all long-running services use `restart: unless-stopped`).
-3. `git clone` this repository, then create `.env` by hand from `.env.example`: strong `POSTGRES_PASSWORD`, `WEBHOOK_SECRET`, `SESSION_SECRET`, seed passwords, the real `GEMINI_API_KEY`, and `PUBLIC_HOSTNAME` built from the Elastic IP. `compose.prod.yaml` refuses to start if a required value is missing.
+3. `git clone` this repository, then create `.env` by hand from `.env.example`: strong `POSTGRES_PASSWORD`, `WEBHOOK_SECRET`, `SESSION_SECRET`, seed passwords, the real `GEMINI_API_KEY`, and `PUBLIC_HOSTNAME` built from the Elastic IP. `compose.prod.yaml` refuses to start if a required value is missing. Production sign-in passwords come only from this server-side `.env` (`SEED_ADMIN_PASSWORD`, `SEED_AGENT_PASSWORD`); they are hashed into the database on each deploy and never stored in the repository.
 
 Deploy (first time and every update), on the server:
 
@@ -68,4 +75,4 @@ docker compose -f compose.prod.yaml up -d --build
 curl -fsS https://$PUBLIC_HOSTNAME/api/health
 ```
 
-Migrations run in the `migrate` service before the app starts; if a migration fails, Compose stops and the new app is not started. Check the certificate right after the first deploy (`docker compose -f compose.prod.yaml logs caddy`), since Let's Encrypt rate-limits repeated failures.
+Migrations and the user seed run in the `migrate` service before the app starts; if a migration fails, Compose stops and the new app is not started. Check the certificate right after the first deploy (`docker compose -f compose.prod.yaml logs caddy`), since Let's Encrypt rate-limits repeated failures.
