@@ -1,0 +1,55 @@
+# Local development stack: `docker compose up --build`
+# Works without a .env file (dev defaults below); a .env next to this file overrides them.
+# No fixed project name: each checkout/worktree gets its own containers and volume.
+# Use APP_HOST_PORT / DB_HOST_PORT to avoid port clashes between parallel stacks.
+
+x-app-env: &app-env
+  DATABASE_URL: postgres://${POSTGRES_USER:-sift}:${POSTGRES_PASSWORD:-sift}@db:5432/${POSTGRES_DB:-sift}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+  AI_DAILY_CAP: ${AI_DAILY_CAP:-50}
+  WEBHOOK_SECRET: ${WEBHOOK_SECRET:-dev-webhook-secret}
+  SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-change-me-at-least-32-chars}
+  SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin-dev-password}
+  SEED_AGENT_PASSWORD: ${SEED_AGENT_PASSWORD:-agent-dev-password}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sift}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sift}
+      POSTGRES_DB: ${POSTGRES_DB:-sift}
+    ports:
+      - "${DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    environment: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+    environment: *app-env
+    ports:
+      - "${APP_HOST_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
