@@ -4,6 +4,7 @@ import { getTicket } from "@/lib/tickets";
 import { parseTicketId } from "@/lib/tickets/schema";
 import { SourceLabel, StatusBadge, timeAgo } from "../../_components/ticket-bits";
 import { CloseTicketButton } from "./close-button";
+import { ReassignControl } from "./reassign-control";
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const id = parseTicketId((await params).id);
@@ -47,6 +48,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </dd>
         </div>
       </dl>
+      <ReassignControl ticketId={ticket.id} assignee={ticket.assignee} />
 
       <section aria-label="Conversation">
         <article className="rounded-lg border border-slate-200 bg-white p-5">
