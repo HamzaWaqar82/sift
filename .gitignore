@@ -9,3 +9,10 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 .claude/
+
+# Impeccable working files (screenshots, reference images, decision payloads)
+.impeccable/shots/
+.impeccable/ref/
+.impeccable/direction*.json
+.impeccable/sketches/
+.impeccable/questions/
