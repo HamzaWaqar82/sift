@@ -214,7 +214,8 @@ describe("proxy (runs before every page and API route)", () => {
     const res = await throughProxy("/tickets?status=open");
 
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe("/sign-in");
+    // Same host as the request; Next's proxy adapter turns it into a relative "/sign-in".
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/sign-in");
   });
 
   it("lets the health check, webhook and sign-in through without a session", async () => {
