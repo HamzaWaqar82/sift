@@ -1,1 +1,535 @@
 @import "tailwindcss";
+
+/*
+ * Sift: the jet-age ticket wallet.
+ * Stock-white ground, coupon-white panels ruled in carrier-navy hairlines, jet red only for the
+ * send action, HIGH urgency and VOID/closed stamps, carbon-purple tabular numerals for data,
+ * lilac carbon copies for sent replies. Every text/background pair below is WCAG AA (see
+ * the contrast notes beside each token).
+ */
+@theme {
+  /* Fonts (self-hosted via @fontsource, imported in app/layout.tsx). */
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Fixed rem scale, ratio ~1.2 around a 15px body. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.6rem;
+  --text-xl: 1.35rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.62rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.944rem;
+  --text-3xl--line-height: 2.25rem;
+
+  /* Ground and panels. */
+  --color-ground: #f2f2f0; /* stock white */
+  --color-panel: #ffffff; /* coupon white */
+  --color-panel-2: #f6f7f9; /* second neutral: rails, table heads, quiet panels */
+
+  /* Carrier navy ink and its navy-tinted neutrals. */
+  --color-ink: #0d1b3d; /* 16.9:1 on white, 15.1:1 on ground */
+  --color-ink-2: #34405e; /* secondary text: 10.3:1 on white, 9.2:1 on ground */
+  --color-ink-3: #565f7a; /* tertiary + placeholders: 6.3:1 on white, 5.6:1 on ground, 5.2:1 on navy-tint */
+  --color-rule: #0d1b3d; /* hairline rules */
+  --color-rule-soft: #c8ccd8; /* in-coupon row dividers (non-text) */
+  --color-navy-tint: #e3e7f1; /* selected row / replied chip */
+  --color-navy-hover: #eceff5; /* row hover */
+  --color-band-ink: #c3cbe0; /* secondary text on the navy band: 9.6:1 */
+
+  /* Jet red: send, HIGH urgency, VOID / closed stamps. */
+  --color-jet: #d7262d; /* white text on it: 4.95:1; on white 4.95:1 */
+  --color-jet-press: #b31d23;
+  --color-jet-ink: #b01c22; /* red text on ground/white/tints: 6.0:1 on ground */
+  --color-jet-tint: #fbe8e8;
+
+  /* Carbon purple numerals, lilac carbon copies. */
+  --color-carbon: #4b2e83; /* 10.4:1 on white, 7.6:1 on lilac */
+  --color-lilac: #d9cfee; /* carbon copy of a sent reply; navy text 12.2:1 */
+  --color-lilac-soft: #eee9f8;
+
+  /* Semantic states. */
+  --color-warn-ink: #7a4b00; /* 7.0:1 on warn-tint */
+  --color-warn-tint: #fbf0d6;
+  --color-ok-ink: #19613f; /* 6.9:1 on ok-tint */
+  --color-ok-tint: #e1f0e8;
+  --color-info-ink: #0d1b3d;
+  --color-info-tint: #e3e7f1;
+
+  --radius-coupon: 4px;
+  --radius-control: 3px;
+
+  --shadow-coupon: 0 1px 2px rgb(13 27 61 / 0.06), 0 3px 10px -4px rgb(13 27 61 / 0.12);
+  --shadow-pop: 0 4px 10px -2px rgb(13 27 61 / 0.14), 0 14px 32px -8px rgb(13 27 61 / 0.22);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  html {
+    background: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-feature-settings: "kern", "liga";
+  }
+  ::selection {
+    background: var(--color-lilac);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  .band :focus-visible {
+    outline-color: var(--color-jet);
+    outline-offset: 2px;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-ink-3);
+    opacity: 1;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+
+@layer components {
+  /* ---------- Type roles ---------- */
+  .caps {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .caps-bold {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  /* Real data only: ticket numbers, times, counts, ids. */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "zero";
+    color: var(--color-carbon);
+    letter-spacing: 0;
+  }
+
+  /* ---------- Coupon ---------- */
+  .coupon {
+    position: relative;
+    background: var(--color-panel);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-coupon);
+    box-shadow: var(--shadow-coupon);
+  }
+  .coupon-quiet {
+    position: relative;
+    background: var(--color-panel);
+    border: 1px solid var(--color-rule-soft);
+    border-radius: var(--radius-coupon);
+  }
+
+  /* A tab sitting on top of a coupon edge, with chamfered (notched) top corners. */
+  .tab {
+    --tab-cut: 7px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 1.625rem;
+    padding: 0 0.875rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-ink);
+    background: var(--color-panel);
+    isolation: isolate;
+    clip-path: polygon(var(--tab-cut) 0, calc(100% - var(--tab-cut)) 0, 100% var(--tab-cut), 100% 100%, 0 100%, 0 var(--tab-cut));
+  }
+  /* The 1px navy outline of the chamfered shape: a navy layer behind, inset white layer in front. */
+  .tab::before,
+  .tab::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    clip-path: inherit;
+  }
+  .tab::before {
+    background: var(--color-rule);
+  }
+  .tab::after {
+    inset: 1px 1px 0 1px;
+    background: inherit;
+    background: var(--tab-fill, var(--color-panel));
+    clip-path: polygon(
+      calc(var(--tab-cut) - 0.6px) 0,
+      calc(100% - var(--tab-cut) + 0.6px) 0,
+      100% calc(var(--tab-cut) - 0.6px),
+      100% 100%,
+      0 100%,
+      0 calc(var(--tab-cut) - 0.6px)
+    );
+  }
+  .tab[data-tone="navy"] {
+    --tab-fill: var(--color-ink);
+    color: #fff;
+  }
+  .tab[data-tone="red"] {
+    --tab-fill: var(--color-jet);
+    color: #fff;
+  }
+  .tab[data-tone="ground"] {
+    --tab-fill: var(--color-ground);
+  }
+  /* A coupon head row: tabs that sit on the coupon's top rule. */
+  .tab-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.25rem;
+    margin-bottom: -1px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ---------- Perforation: dashed rule with two half-circle notches ---------- */
+  .perf {
+    position: relative;
+    height: 0;
+    border-top: 1.5px dashed var(--color-rule);
+    margin: 0;
+    overflow: visible;
+  }
+  .perf::before,
+  .perf::after {
+    content: "";
+    position: absolute;
+    top: -8px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--perf-bg, var(--color-ground));
+    border: 1px solid var(--color-rule);
+  }
+  .perf::before {
+    left: -9px;
+    clip-path: inset(-1px -1px -1px 8px);
+  }
+  .perf::after {
+    right: -9px;
+    clip-path: inset(-1px 8px -1px -1px);
+  }
+  /* Vertical perforation for wide coupons (stub at left). */
+  .perf-v {
+    position: relative;
+    border-left: 1.5px dashed var(--color-rule);
+  }
+  .perf-v::before,
+  .perf-v::after {
+    content: "";
+    position: absolute;
+    left: -9px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--perf-bg, var(--color-ground));
+    border: 1px solid var(--color-rule);
+  }
+  .perf-v::before {
+    top: -9px;
+    clip-path: inset(8px -1px -1px -1px);
+  }
+  .perf-v::after {
+    bottom: -9px;
+    clip-path: inset(-1px -1px 8px -1px);
+  }
+
+  /* Ruled field: label caps over value, separated by navy hairlines. */
+  .field-label {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-3);
+  }
+
+  /* ---------- Stamps: state is applied, never hidden ---------- */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.05rem 0.4rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--text-xs);
+    line-height: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    border: 1.5px solid currentColor;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1.5px var(--stamp-bg, transparent);
+  }
+  .stamp[data-state="open"] {
+    color: var(--color-ink);
+  }
+  .stamp[data-state="replied"] {
+    color: var(--color-carbon);
+  }
+  .stamp[data-state="closed"] {
+    color: var(--color-jet-ink);
+  }
+  /* The large, rotated rubber stamp (SENT, VOID, DRAFT). */
+  .rubber {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.3rem 0.6rem 0.35rem;
+    border: 2px solid currentColor;
+    outline: 1px solid currentColor;
+    outline-offset: 2px;
+    border-radius: 3px;
+    transform: rotate(var(--rubber-rot, -4deg));
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    line-height: 1;
+    background: color-mix(in srgb, var(--rubber-bg, transparent) 70%, transparent);
+  }
+  .rubber-word {
+    font-weight: 700;
+    font-size: var(--text-xl);
+    letter-spacing: 0.12em;
+  }
+  .rubber-meta {
+    margin-top: 0.2rem;
+    font-weight: 600;
+    font-size: var(--text-2xs);
+    letter-spacing: 0.06em;
+  }
+  .rubber-sent {
+    color: var(--color-ink);
+  }
+  .rubber-void {
+    color: var(--color-jet-ink);
+  }
+  .rubber-draft {
+    color: var(--color-carbon);
+  }
+  .rubber-landing {
+    animation: stamp-land 240ms var(--ease-out-expo) both;
+  }
+  @keyframes stamp-land {
+    0% {
+      transform: rotate(-14deg) scale(1.55);
+      opacity: 0;
+    }
+    60% {
+      opacity: 1;
+    }
+    100% {
+      transform: rotate(var(--rubber-rot, -4deg)) scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* ---------- Controls ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    height: 2.25rem;
+    padding: 0 0.95rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+    border-radius: var(--radius-control);
+    border: 1.5px solid var(--color-ink);
+    background: var(--color-panel);
+    color: var(--color-ink);
+    cursor: pointer;
+    transition:
+      background-color 160ms ease-out,
+      color 160ms ease-out,
+      border-color 160ms ease-out,
+      transform 120ms ease-out;
+  }
+  .btn:hover {
+    background: var(--color-ink);
+    color: #fff;
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    background: var(--color-panel-2);
+    border-color: var(--color-rule-soft);
+    color: var(--color-ink-3);
+    transform: none;
+  }
+  .btn-sm {
+    height: 1.875rem;
+    padding: 0 0.7rem;
+    font-size: var(--text-xs);
+  }
+  .btn-navy {
+    background: var(--color-ink);
+    color: #fff;
+  }
+  .btn-navy:hover {
+    background: #1c2d5a;
+    border-color: #1c2d5a;
+  }
+  /* Jet red: the send action only (and the stamp-like confirm of destructive admin actions). */
+  .btn-send {
+    background: var(--color-jet);
+    border-color: var(--color-jet);
+    color: #fff;
+    height: 2.5rem;
+    padding: 0 1.4rem;
+    font-weight: 700;
+  }
+  .btn-send:hover {
+    background: var(--color-jet-press);
+    border-color: var(--color-jet-press);
+  }
+  .btn-ghost {
+    border-color: transparent;
+    background: transparent;
+  }
+  .btn-ghost:hover {
+    background: var(--color-navy-hover);
+    color: var(--color-ink);
+  }
+
+  .input {
+    display: block;
+    width: 100%;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    font-size: var(--text-base);
+    color: var(--color-ink);
+    background: var(--color-panel);
+    border: 1px solid var(--color-ink-3);
+    border-radius: var(--radius-control);
+    transition:
+      border-color 160ms ease-out,
+      box-shadow 160ms ease-out;
+  }
+  .input:hover {
+    border-color: var(--color-ink);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--color-ink);
+    box-shadow: 0 0 0 1px var(--color-ink);
+  }
+  .input:focus-visible {
+    outline: none;
+  }
+  .input[aria-invalid="true"] {
+    border-color: var(--color-jet-ink);
+    box-shadow: 0 0 0 1px var(--color-jet-ink);
+  }
+  .input:disabled {
+    background: var(--color-panel-2);
+    color: var(--color-ink-3);
+  }
+  .label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-2);
+  }
+
+  .link {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  .link:hover {
+    text-decoration-thickness: 2px;
+  }
+
+  /* ---------- Skeleton (loading never spins) ---------- */
+  .skel {
+    background: linear-gradient(90deg, #e7e9ef 0%, #f1f2f5 40%, #e7e9ef 80%);
+    background-size: 300% 100%;
+    border-radius: 2px;
+    animation: skel 1.4s ease-in-out infinite;
+  }
+  @keyframes skel {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0 0;
+    }
+  }
+
+  /* Native popover panels used by the filter rail (top layer: never clipped). */
+  .pop {
+    margin: 0;
+    padding: 0;
+    position: fixed;
+    inset: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-coupon);
+    background: var(--color-panel);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-pop);
+    min-width: 13rem;
+    max-height: min(24rem, 70vh);
+    overflow: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  .rubber-landing {
+    animation: none;
+  }
+}
