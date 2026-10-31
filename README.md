@@ -29,7 +29,6 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Redaction: email addresses and phone numbers (digit runs of 9+ digits with spaces, dots, dashes, parentheses or a leading `+`) are replaced with `[email removed]` / `[phone removed]` in the subject and body before they are sent to the provider (`lib/triage/redact.ts`). The stored ticket is unchanged. Dates, amounts and short order numbers are kept.
 - Admin regenerate: `POST /api/tickets/:id/triage` with `{"force": true}` makes a new call even over a valid result and the new result replaces it. Admin only: an agent gets 403 and nothing is called. The "Regenerate (admin)" button is shown only to admins. Agents can still retry after a failed triage (plain `POST`, no body). A malformed body returns 400.
 - Ticket list shows category and urgency badges for tickets whose latest triage is valid ("Triage failed" or "Not triaged yet" otherwise).
-- Data handling: on a **free-tier Gemini key, Google may use the prompts (ticket text) to improve its products**. Redaction reduces what is shared but does not remove it (names, account details and free text still go out). Production should use a paid (billing-enabled) key, whose prompts are not used that way.
 
 ## What was left out
 
@@ -44,6 +43,18 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Category and urgency in the list only for triaged tickets (deliberate trade-off): triage runs on demand, never in the background, so a ticket nobody has opened shows "Not triaged yet" instead of a category and urgency. This keeps AI spend proportional to tickets actually looked at, at the cost of not being able to sort the queue by urgency up front.
 - A Previous button and page numbers: the list pages forward with a cursor and relies on browser Back.
 - Retrieval for help articles: the whole article set (ten short articles) is placed in every prompt. That stops scaling at a few dozen articles (prompt cost and model attention); the scaling path is retrieval with embeddings (embed the articles, store vectors, e.g. pgvector, and put only the top few matches for the ticket in the prompt).
+
+## Trade-offs
+
+- **One EC2 instance, Postgres in a container.** Cheap and simple to hand-deploy; no failover, and backups are manual. The production path below moves the database to RDS.
+- **Triage on demand, cached per ticket.** AI spend follows tickets an agent actually opens (at most one call per ticket, plus explicit retries/regenerates), at the cost of no urgency sorting for untouched tickets.
+- **Human in the loop instead of automation.** The AI only suggests; an agent edits and sends every reply. Slower than auto-reply, but it is the real control against wrong drafts and prompt injection.
+- **Whole article set in every prompt.** No retrieval to build or tune; fine for ten articles, not for hundreds (see "What was left out").
+- **In-memory sign-in rate limit and a check-then-increment AI cap.** Simple, correct for one instance and four agents; the cap's race is the known problem below.
+
+## Free-tier data risk
+
+On a **free-tier Gemini key, Google may use the prompts (ticket text) to improve its products**. Redaction of email addresses and phone numbers reduces what is shared but does not remove it: names, account details and free text still go out. Production should use a paid (billing-enabled) key, whose prompts are not used that way, and customers should be told an AI provider processes their messages.
 
 ## Webhook (inbound email)
 
@@ -97,33 +108,7 @@ Postgres takes a row lock for the conflicting update, so concurrent requests are
 
 ## Demo
 
-### Agent gets 403 on reassign (server-side role check)
-
-The UI hides the control from agents; this shows the server refuses them anyway. Signing in with curl stores the agent's session cookie (`sift_session`) in a cookie jar, the same cookie a browser gets. (Alternative: sign in as an agent in the browser, open DevTools > Application > Cookies, copy the `sift_session` value and pass it with `-H "Cookie: sift_session=<value>"`.)
-
-```sh
-BASE=https://sift-43-204-61-13.sslip.io   # or http://localhost:3000
-AGENT_PASSWORD='...'                      # SEED_AGENT_PASSWORD (local default: see compose.yaml)
-ADMIN_PASSWORD='...'                      # SEED_ADMIN_PASSWORD
-
-# Sign in as an agent; the session cookie lands in agent.jar
-curl -s -c agent.jar -H 'content-type: application/json' \
-  -d "{\"email\":\"alice@sift.local\",\"password\":\"$AGENT_PASSWORD\"}" "$BASE/api/auth/sign-in"
-
-# Agent tries to assign ticket 1 to user 3 -> 403 {"error":"You do not have permission to do that"}
-curl -s -w '\nHTTP %{http_code}\n' -b agent.jar -H 'content-type: application/json' \
-  -d '{"assigneeId":3}' "$BASE/api/tickets/1/assign"
-
-# Same call as the admin -> 200 {"ticket":{..., "assignee":{...}}}
-curl -s -c admin.jar -H 'content-type: application/json' \
-  -d "{\"email\":\"admin@sift.local\",\"password\":\"$ADMIN_PASSWORD\"}" "$BASE/api/auth/sign-in"
-curl -s -w '\nHTTP %{http_code}\n' -b admin.jar -H 'content-type: application/json' \
-  -d '{"assigneeId":3}' "$BASE/api/tickets/1/assign"
-
-rm -f agent.jar admin.jar
-```
-
-User ids come from the seed order (1 admin, then alice, ben, chloe, dev); the assignee picker on a ticket page lists them too.
+The 15-minute walkthrough, with every click and `curl` (webhook, live triage, edited reply, agent 403 vs admin 200 on reassign), is in [`docs/DEMO.md`](docs/DEMO.md).
 
 ## How to run locally
 
@@ -176,3 +161,12 @@ curl -fsS https://$PUBLIC_HOSTNAME/api/health
 ```
 
 Migrations and the user seed run in the `migrate` service before the app starts; if a migration fails, Compose stops and the new app is not started. Check the certificate right after the first deploy (`docker compose -f compose.prod.yaml logs caddy`), since Let's Encrypt rate-limits repeated failures.
+
+## Production path
+
+What this deployment does by hand, and what a production setup would do instead:
+
+- **Deploys via SSM with OIDC, not SSH.** CI (e.g. GitHub Actions) assumes an IAM role through OIDC (no long-lived AWS keys) and runs the deploy with SSM Run Command (`AWS-RunShellScript`). Port 22 is closed and no SSH key exists to leak; every deploy is logged in CloudTrail. A failed health check after deploy would roll back to the previous image tag.
+- **Secrets in a secrets manager.** `WEBHOOK_SECRET`, `SESSION_SECRET`, `GEMINI_API_KEY` and the database password live in AWS Secrets Manager (or SSM Parameter Store SecureString), read at start-up by the instance role, instead of a `.env` file on disk. Rotation becomes a secret update plus restart.
+- **Managed database.** Postgres moves to RDS (Multi-AZ, automated backups, point-in-time restore, encryption at rest) in a private subnet reachable only from the app's security group. The `migrate` step runs unchanged against it.
+- Also: images built once in CI and pushed to ECR (the server stops building), a paid Gemini key, real email delivery (SES) and the atomic AI-cap fix.
