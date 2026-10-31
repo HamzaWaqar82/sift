@@ -4,6 +4,7 @@ import { getTicket } from "@/lib/tickets";
 import { parseTicketId } from "@/lib/tickets/schema";
 import { SourceLabel, StatusBadge, timeAgo } from "../../_components/ticket-bits";
 import { CloseTicketButton } from "./close-button";
+import { TriagePanel } from "./triage-panel";
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const id = parseTicketId((await params).id);
@@ -56,6 +57,8 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           <div className="whitespace-pre-wrap break-words text-slate-800">{ticket.body}</div>
         </article>
       </section>
+
+      <TriagePanel ticketId={ticket.id} />
     </div>
   );
 }

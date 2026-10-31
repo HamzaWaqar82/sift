@@ -1,0 +1,52 @@
+[
+  {
+    "id": "duplicate-charges-and-refunds",
+    "title": "Duplicate charges and refunds",
+    "body": "If you see two charges for the same plan in one billing period, the second is almost always a duplicate payment attempt. Support can refund a confirmed duplicate in full; refunds reach the card in 5-10 business days. Please include the date and amount of both charges. Other refunds (for example after a downgrade) are handled under the cancellation policy."
+  },
+  {
+    "id": "invoices-and-vat",
+    "title": "Invoices, VAT numbers and billing addresses",
+    "body": "Admins can add a VAT ID and a registered billing address under Settings > Billing > Invoice details. New invoices include them automatically. Invoices already issued are not changed automatically, but support can reissue past invoices with the VAT ID and address on request."
+  },
+  {
+    "id": "sign-in-and-two-factor",
+    "title": "Sign-in problems and two-factor recovery",
+    "body": "If you lost the device with your authenticator app, sign in with one of your backup codes. Without backup codes, support can reset two-factor after verifying your identity (we email the account address and ask a workspace admin to confirm); this usually takes one business day, faster when urgent. If a whole team is being signed out or passwords are refused repeatedly, a workspace admin should check Settings > Security for a forced sign-out or SSO change, and contact support with the time it happened so we can check our logs."
+  },
+  {
+    "id": "api-errors",
+    "title": "API errors and service status",
+    "body": "HTTP 5xx responses from the API mean the problem is on our side. Check status.example.com for ongoing incidents. When contacting support, include the endpoint, the time (UTC) and a request id (the req_... value in the response headers) so engineers can trace the failure. Retrying with exponential backoff is safe for all POST endpoints that accept an Idempotency-Key header."
+  },
+  {
+    "id": "calendar-sync",
+    "title": "Google Calendar sync troubleshooting",
+    "body": "If new events stop appearing in Google Calendar, open Settings > Integrations > Google Calendar and choose Reauthorize (disconnecting and reconnecting does not always refresh the permission). Make sure the target calendar is still selected. Sync runs every 15 minutes. If events still do not appear after an hour, contact support with the date the sync stopped."
+  },
+  {
+    "id": "cancel-subscription",
+    "title": "Cancelling a subscription",
+    "body": "Workspace admins can cancel under Settings > Billing > Cancel plan. Monthly plans stay active until the end of the paid period and are not refunded. Annual plans can be refunded pro rata for full unused months when requested within the plan year. After cancelling you can still sign in and export all data for 30 days before the workspace is deleted."
+  },
+  {
+    "id": "change-login-email-or-owner",
+    "title": "Changing login emails and transferring account ownership",
+    "body": "Each user can change their own login email under Profile > Email; history and permissions are kept because they belong to the user, not the address. A confirmation link is sent to the new address. Admins can change emails for others under Settings > Members. To transfer workspace ownership to another person, the current owner (or a workspace admin) makes them an Owner under Settings > Members; support can do it on request after confirming with the current owner by email."
+  },
+  {
+    "id": "seats-plans-and-discounts",
+    "title": "Seats, adding team members and discounts",
+    "body": "Admins add people under Settings > Members > Invite. Each new member uses a seat; on the Team plan ($49/month for up to 5 seats, then $9 per extra seat) adding a sixth seat changes the next bill pro rata. Registered nonprofits and charities get 30% off Team and Business plans: reply with proof of registration and support applies the discount from the next invoice."
+  },
+  {
+    "id": "exports-and-reports",
+    "title": "Exporting data and reports",
+    "body": "Use Export > All time entries for a full export, or the Download button on any report. Very large exports can time out (error E-EXP-504); export a smaller date range, or use Export > Email me the file, which runs in the background and emails a link within 15 minutes. Reports can currently be downloaded as PDF; CSV download for reports is planned."
+  },
+  {
+    "id": "feature-requests",
+    "title": "Feature requests and the roadmap",
+    "body": "We read every feature request and log it with the number of customers asking. We do not promise dates, but popular requests are reviewed every quarter. Some items already planned: CSV download for reports and a dark mode. Customers who request a feature are emailed when it ships."
+  }
+]
