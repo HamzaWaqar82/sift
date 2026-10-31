@@ -18,6 +18,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await sql`truncate tickets restart identity cascade`;
+  await sql`truncate ai_usage`; // triage counts against the daily cap (ticket 08)
   provider.mockReset();
 });
 afterAll(async () => {
