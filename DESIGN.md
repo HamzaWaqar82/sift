@@ -263,7 +263,8 @@ A navy-on-paper palette: one dominant ink, one rationed alarm red, one data purp
 - **Stock White** (ground): the page.
 - **Coupon White** (panel): every coupon, input and popover.
 - **Rail Grey** (panel-2): coupon stubs, table heads, the saved-views bar, board columns, disabled buttons.
-- **Ink 2 / Ink 3** (ink-2, ink-3): secondary text, and tertiary text plus placeholders and input borders.
+- **Ink 2 / Ink 3** (ink-2, ink-3): secondary text, and tertiary text plus input borders.
+- **Placeholder** (placeholder, #666d83): input and textarea placeholders, one step lighter than ink-3 so empty fields read as empty; 5.2:1 on white, 4.6:1 on ground.
 - **Soft Rule** (rule-soft): in-coupon row dividers and quiet list-row borders (non-text).
 - **Navy Tint / Navy Hover** (navy-tint, navy-hover): selected row and active filter chip; row hover.
 - **Band Ink** (band-ink): secondary text on the navy band. The band also uses deeper navies for its search field, inactive tabs and their lines (band-field, band-field-line, band-tab, band-tab-line, band-tab-hover); these are hardcoded in components, not theme tokens.

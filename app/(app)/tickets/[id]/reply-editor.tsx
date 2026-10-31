@@ -161,9 +161,11 @@ export function ReplyEditor({
           {more && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 flex h-10 items-end justify-center rounded-none bg-gradient-to-t from-panel via-panel/85 to-transparent pb-1 font-display text-2xs font-semibold uppercase tracking-[0.08em] text-ink-2"
+              className="pointer-events-none absolute inset-x-0 bottom-0 flex h-10 items-end justify-end bg-gradient-to-t from-panel via-panel/90 to-transparent px-3 pb-1.5"
             >
-              More below, scroll
+              <span className="rounded-sm border border-rule-soft bg-panel px-1.5 py-0.5 font-display text-2xs font-semibold uppercase tracking-[0.08em] text-ink-2 shadow-[0_1px_2px_rgb(13_27_61/0.12)]">
+                More below, scroll
+              </span>
             </span>
           )}
         </div>

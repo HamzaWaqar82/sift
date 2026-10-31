@@ -39,7 +39,8 @@
   /* Carrier navy ink and its navy-tinted neutrals. */
   --color-ink: #0d1b3d; /* 16.9:1 on white, 15.1:1 on ground */
   --color-ink-2: #34405e; /* secondary text: 10.3:1 on white, 9.2:1 on ground */
-  --color-ink-3: #4a5370; /* tertiary + placeholders: 7.6:1 on white, 6.8:1 on ground, 6.1:1 on navy-tint */
+  --color-ink-3: #4a5370; /* tertiary text: 7.6:1 on white, 6.8:1 on ground, 6.1:1 on navy-tint */
+  --color-placeholder: #666d83; /* lighter than typed text, still 5.2:1 on white, 4.6:1 on ground, 4.8:1 on panel-2 */
   --color-rule: #0d1b3d; /* hairline rules */
   --color-rule-soft: #c8ccd8; /* in-coupon row dividers (non-text) */
   --color-navy-tint: #e3e7f1; /* selected row / replied chip */
@@ -101,7 +102,7 @@
   }
   input::placeholder,
   textarea::placeholder {
-    color: var(--color-ink-3);
+    color: var(--color-placeholder);
     opacity: 1;
   }
   h1,
