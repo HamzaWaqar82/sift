@@ -1,9 +1,10 @@
 // Shared ticket queries and commands. Route handlers (form, webhook, reply, reassign) and
 // pages use these instead of writing their own SQL.
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import {
+  helpArticles,
   tickets,
   triageResults,
   users,
@@ -46,7 +47,15 @@ export type TicketDetail = Ticket & {
   assignee: Assignee;
   /** The latest triage row for the ticket (valid or error), or null when never triaged. */
   triage: typeof triageResults.$inferSelect | null;
+  /**
+   * The help article behind the latest VALID triage. null: no valid triage yet.
+   * `{ article: null }`: the draft is ungrounded (the AI cited no article).
+   */
+  grounding: Grounding;
 };
+
+export type GroundingArticle = { id: string; title: string; body: string };
+export type Grounding = { article: GroundingArticle | null } | null;
 
 /**
  * Creates a ticket. Idempotent on `externalMessageId`: a repeat returns the existing ticket
@@ -100,7 +109,25 @@ export async function getTicket(id: number): Promise<TicketDetail | null> {
     .orderBy(desc(triageResults.createdAt), desc(triageResults.id))
     .limit(1);
 
-  return { ...row.ticket, assignee: row.assignee?.id ? row.assignee : null, triage: triage ?? null };
+  return {
+    ...row.ticket,
+    assignee: row.assignee?.id ? row.assignee : null,
+    triage: triage ?? null,
+    grounding: await getGrounding(id),
+  };
+}
+
+/** The article referenced by the ticket's latest valid triage (see `TicketDetail.grounding`). */
+async function getGrounding(ticketId: number): Promise<Grounding> {
+  const [row] = await getDb()
+    .select({ id: helpArticles.id, title: helpArticles.title, body: helpArticles.body })
+    .from(triageResults)
+    .leftJoin(helpArticles, eq(helpArticles.id, triageResults.articleId))
+    .where(and(eq(triageResults.ticketId, ticketId), isNull(triageResults.error)))
+    .orderBy(desc(triageResults.createdAt), desc(triageResults.id))
+    .limit(1);
+  if (!row) return null;
+  return { article: row.id ? { id: row.id, title: row.title!, body: row.body! } : null };
 }
 
 /** Sets a ticket's status. Returns the updated ticket, or null if it does not exist. */
