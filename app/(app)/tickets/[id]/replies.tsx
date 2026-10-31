@@ -1,6 +1,7 @@
 import { currentDraft, listReplies } from "@/lib/replies";
 import type { TicketDetail } from "@/lib/tickets";
 import { timeAgo } from "../../_components/ticket-bits";
+import { WithArticlePanel } from "./article-panel";
 import { ReplyEditor } from "./reply-editor";
 
 /** Sent replies (thread) and the reply editor for one ticket. */
@@ -27,7 +28,7 @@ export async function TicketReplies({ ticket }: { ticket: TicketDetail }) {
           <div className="whitespace-pre-wrap break-words text-slate-800">{r.finalBody}</div>
         </article>
       ))}
-      <ReplyEditor ticketId={ticket.id} draft={currentDraft(ticket)} />
+      <WithArticlePanel grounding={ticket.grounding}><ReplyEditor ticketId={ticket.id} draft={currentDraft(ticket)} /></WithArticlePanel>
     </div>
   );
 }
