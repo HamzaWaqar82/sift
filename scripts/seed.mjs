@@ -66,6 +66,27 @@ export async function seedSampleTickets(url) {
   return created;
 }
 
+const HELP_ARTICLES = new URL("../samples/help-articles.json", import.meta.url);
+
+/**
+ * Upserts the help articles the AI may cite (samples/help-articles.json), keyed on their slug id.
+ * Idempotent: re-running updates titles and bodies. Returns the number of articles.
+ */
+export async function seedHelpArticles(url) {
+  const articles = JSON.parse(await readFile(HELP_ARTICLES, "utf8"));
+  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  try {
+    for (const a of articles) {
+      await sql`
+        insert into help_articles (id, title, body) values (${a.id}, ${a.title}, ${a.body})
+        on conflict (id) do update set title = excluded.title, body = excluded.body`;
+    }
+  } finally {
+    await sql.end();
+  }
+  return articles.length;
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -79,6 +100,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     .then(() => console.log(`seeded ${SEED_USERS.length} users`))
     .then(() => seedSampleTickets(url))
     .then((n) => console.log(`seeded ${n} new sample tickets`))
+    .then(() => seedHelpArticles(url))
+    .then((n) => console.log(`seeded ${n} help articles`))
     .catch((err) => {
       console.error("seed failed:", err.message);
       process.exit(1);

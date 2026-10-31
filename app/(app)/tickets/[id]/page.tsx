@@ -6,6 +6,7 @@ import { SourceLabel, StatusBadge, timeAgo } from "../../_components/ticket-bits
 import { CloseTicketButton } from "./close-button";
 import { ReassignControl } from "./reassign-control";
 import { TicketReplies } from "./replies";
+import { TriagePanel } from "./triage-panel";
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const id = parseTicketId((await params).id);
@@ -50,6 +51,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         </div>
       </dl>
       <ReassignControl ticketId={ticket.id} assignee={ticket.assignee} />
+      <TriagePanel ticketId={ticket.id} />
 
       <section aria-label="Conversation">
         <article className="rounded-lg border border-slate-200 bg-white p-5">
