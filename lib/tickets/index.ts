@@ -113,6 +113,33 @@ export async function setTicketStatus(id: number, status: TicketStatus): Promise
   return row ?? null;
 }
 
+/**
+ * Sets (or clears, with null) a ticket's assignee. Callers must check the admin role first.
+ * Returns the updated ticket detail, or why it could not be assigned.
+ */
+export async function assignTicket(
+  id: number,
+  assigneeId: number | null,
+): Promise<{ ok: true; ticket: TicketDetail } | { ok: false; reason: "ticket-not-found" | "unknown-user" }> {
+  const db = getDb();
+  if (assigneeId !== null) {
+    const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, assigneeId)).limit(1);
+    if (!user) return { ok: false, reason: "unknown-user" };
+  }
+  const [row] = await db
+    .update(tickets)
+    .set({ assigneeId, updatedAt: sql`now()` })
+    .where(eq(tickets.id, id))
+    .returning({ id: tickets.id });
+  if (!row) return { ok: false, reason: "ticket-not-found" };
+  return { ok: true, ticket: (await getTicket(id))! };
+}
+
+/** Every staff user, for the admin's assignee picker. */
+export async function listAssignableUsers(): Promise<{ id: number; name: string; email: string }[]> {
+  return getDb().select({ id: users.id, name: users.name, email: users.email }).from(users).orderBy(users.name);
+}
+
 export class InvalidCursorError extends Error {
   constructor() {
     super("Invalid cursor");

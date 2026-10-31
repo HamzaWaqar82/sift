@@ -14,9 +14,11 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Failed sign-ins are limited per client address in memory: after 5 failures in 15 minutes that address gets 429 until the window ends.
 - Ticket list (`/`, `GET /api/tickets`): newest first, 20 per page, filter by status (open, replied, closed). The filter and an opaque cursor live in the URL (`/?status=open&cursor=...`); changing the filter restarts from page one; going back uses browser history. Keyset paging on `(created_at, id)` means tickets arriving between pages never cause a duplicate or a skip. Each row shows subject, customer, status, assignee, source and age.
 - Ticket detail (`/tickets/:id`, `GET /api/tickets/:id`) with the full customer message, status and assignee. Any agent can close a ticket (`POST /api/tickets/:id/close`).
+- Admin reassign: on the ticket detail page an admin sees a "Reassign to" picker (any user, or Unassigned); agents do not see it. `POST /api/tickets/:id/assign` with `{"assigneeId": <user id> | null}` returns 200 `{ticket}` (with `assignee`) for an admin; 403 for an agent (nothing changes), 401 when signed out, 400 for an unknown user or bad body, 404 for an unknown ticket. New tickets start unassigned; the assignee never restricts who may work a ticket.
 - New-ticket form (`/tickets/new`, `POST /api/tickets`) for phone calls and chats: customer email, optional name, subject, message; source `form`; invalid input returns per-field errors.
 - Sample data: `samples/emails.json` holds 14 realistic customer emails (billing, technical, account, feature requests, an angry/urgent one, a vague one, a prompt-injection attempt, one with a phone number and personal email). The seed step creates them as tickets, keyed on message id so re-running never duplicates. Two more in `samples/live/` are deliberately not seeded, for posting live through the webhook in the demo.
 - Inbound-email webhook (`POST /api/webhook`): a JSON email with the `x-webhook-secret` header becomes a ticket with source `webhook`. Secret compared in constant time, 64 KiB body limit, 400 with a reason for bad payloads, and re-posting a message id returns the existing ticket instead of a duplicate. Contract and demo `curl` under "Webhook (inbound email)".
+- Reply and audit (`POST /api/tickets/:id/replies` with `{body, idempotencyKey}`, `GET` lists the thread): on the ticket page the reply box starts with the latest valid AI draft (empty otherwise), and the agent edits it and clicks Send; nothing is sent automatically. Each reply records the ticket, the AI draft (read from the stored triage on the server, not from the browser), the final text, who sent it, when, and an edited flag computed on the server. Sending sets the ticket to replied; empty replies are rejected; a per-compose idempotency key makes a double click record one reply. Any agent can reply to any ticket, with or without triage. **Replies are recorded in the app only: no email is delivered to the customer** (SES left out).
 - The full data model is in one migration: `tickets`, `help_articles`, `triage_results` (every attempt; the ticket shows the latest), `replies` (with a unique idempotency key) and `ai_usage` (calls per UTC day).
 
 ## What was left out
@@ -70,6 +72,36 @@ Running it a second time returns `200` with `"created":false` for both and adds 
 ## Known problem and fix
 
 _To be filled in as features land (planned: the AI daily-cap race, fixed with an atomic counter update)._
+
+## Demo
+
+### Agent gets 403 on reassign (server-side role check)
+
+The UI hides the control from agents; this shows the server refuses them anyway. Signing in with curl stores the agent's session cookie (`sift_session`) in a cookie jar, the same cookie a browser gets. (Alternative: sign in as an agent in the browser, open DevTools > Application > Cookies, copy the `sift_session` value and pass it with `-H "Cookie: sift_session=<value>"`.)
+
+```sh
+BASE=https://sift-43-204-61-13.sslip.io   # or http://localhost:3000
+AGENT_PASSWORD='...'                      # SEED_AGENT_PASSWORD (local default: see compose.yaml)
+ADMIN_PASSWORD='...'                      # SEED_ADMIN_PASSWORD
+
+# Sign in as an agent; the session cookie lands in agent.jar
+curl -s -c agent.jar -H 'content-type: application/json' \
+  -d "{\"email\":\"alice@sift.local\",\"password\":\"$AGENT_PASSWORD\"}" "$BASE/api/auth/sign-in"
+
+# Agent tries to assign ticket 1 to user 3 -> 403 {"error":"You do not have permission to do that"}
+curl -s -w '\nHTTP %{http_code}\n' -b agent.jar -H 'content-type: application/json' \
+  -d '{"assigneeId":3}' "$BASE/api/tickets/1/assign"
+
+# Same call as the admin -> 200 {"ticket":{..., "assignee":{...}}}
+curl -s -c admin.jar -H 'content-type: application/json' \
+  -d "{\"email\":\"admin@sift.local\",\"password\":\"$ADMIN_PASSWORD\"}" "$BASE/api/auth/sign-in"
+curl -s -w '\nHTTP %{http_code}\n' -b admin.jar -H 'content-type: application/json' \
+  -d '{"assigneeId":3}' "$BASE/api/tickets/1/assign"
+
+rm -f agent.jar admin.jar
+```
+
+User ids come from the seed order (1 admin, then alice, ben, chloe, dev); the assignee picker on a ticket page lists them too.
 
 ## How to run locally
 
