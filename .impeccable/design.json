@@ -1,0 +1,670 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-31T11:22:53.932809+00:00",
+  "title": "Design System: Sift",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Stock White",
+        "canonical": "#f2f2f0",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#242423",
+          "#40403e",
+          "#5e5e5c",
+          "#7d7d7b",
+          "#9e9e9d",
+          "#c4c4c2",
+          "#eeeeec"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Coupon White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "panel-2": {
+        "role": "neutral",
+        "displayName": "Rail Grey",
+        "canonical": "#f6f7f9",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#232425",
+          "#3f4041",
+          "#5d5e5f",
+          "#7c7d7f",
+          "#9d9ea0",
+          "#c3c4c6",
+          "#edeef0"
+        ]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Carrier Navy",
+        "canonical": "#0d1b3d",
+        "tonalRamp": [
+          "#010727",
+          "#132245",
+          "#2e3f64",
+          "#4b5d84",
+          "#697da6",
+          "#8a9eca",
+          "#aec4f1",
+          "#d8efff"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "#34405e",
+        "tonalRamp": [
+          "#030822",
+          "#18233e",
+          "#333f5d",
+          "#505d7d",
+          "#6f7d9e",
+          "#8f9ec1",
+          "#b4c4e8",
+          "#deeeff"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "canonical": "#4a5370",
+        "tonalRamp": [
+          "#05081f",
+          "#1b223c",
+          "#363e5a",
+          "#535c7a",
+          "#727c9b",
+          "#939dbe",
+          "#b8c3e5",
+          "#e2eeff"
+        ]
+      },
+      "rule": {
+        "role": "primary",
+        "displayName": "Navy Hairline",
+        "canonical": "#0d1b3d",
+        "tonalRamp": [
+          "#010727",
+          "#132245",
+          "#2e3f64",
+          "#4b5d84",
+          "#697da6",
+          "#8a9eca",
+          "#aec4f1",
+          "#d8efff"
+        ]
+      },
+      "rule-soft": {
+        "role": "neutral",
+        "displayName": "Soft Rule",
+        "canonical": "#c8ccd8",
+        "tonalRamp": [
+          "#080b12",
+          "#21242d",
+          "#3c3f49",
+          "#5a5d68",
+          "#797d88",
+          "#9a9ea9",
+          "#c0c4d0",
+          "#eaeefa"
+        ]
+      },
+      "navy-tint": {
+        "role": "neutral",
+        "displayName": "Navy Tint",
+        "canonical": "#e3e7f1",
+        "tonalRamp": [
+          "#090b11",
+          "#21242b",
+          "#3c4048",
+          "#5a5d66",
+          "#7a7d86",
+          "#9b9ea8",
+          "#c0c4ce",
+          "#eaeef8"
+        ]
+      },
+      "navy-hover": {
+        "role": "neutral",
+        "displayName": "Navy Hover",
+        "canonical": "#eceff5",
+        "tonalRamp": [
+          "#090b0f",
+          "#222428",
+          "#3d4044",
+          "#5b5e63",
+          "#7b7d83",
+          "#9c9ea4",
+          "#c1c4ca",
+          "#ebeef4"
+        ]
+      },
+      "navy-press": {
+        "role": "primary",
+        "displayName": "Navy Press",
+        "canonical": "#1c2d5a",
+        "tonalRamp": [
+          "#01042e",
+          "#11204c",
+          "#2b3d6c",
+          "#475c8d",
+          "#667cb0",
+          "#869dd3",
+          "#abc3fb",
+          "#d4eeff"
+        ]
+      },
+      "band-ink": {
+        "role": "neutral",
+        "displayName": "Band Ink",
+        "canonical": "#c3cbe0",
+        "tonalRamp": [
+          "#060a18",
+          "#1e2333",
+          "#393f50",
+          "#565d6f",
+          "#767d90",
+          "#969eb2",
+          "#bcc4d9",
+          "#e6eeff"
+        ]
+      },
+      "band-field": {
+        "role": "neutral",
+        "displayName": "Band Field",
+        "canonical": "#16264d",
+        "tonalRamp": [
+          "#01062a",
+          "#122148",
+          "#2c3e67",
+          "#495d88",
+          "#677daa",
+          "#889ece",
+          "#adc4f6",
+          "#d6efff"
+        ]
+      },
+      "band-field-line": {
+        "role": "neutral",
+        "displayName": "Band Field Line",
+        "canonical": "#3a4a75",
+        "tonalRamp": [
+          "#02052a",
+          "#142148",
+          "#2e3d67",
+          "#4b5c88",
+          "#6a7cab",
+          "#8a9dce",
+          "#afc3f6",
+          "#d8eeff"
+        ]
+      },
+      "band-tab": {
+        "role": "neutral",
+        "displayName": "Band Tab",
+        "canonical": "#172751",
+        "tonalRamp": [
+          "#01052c",
+          "#11214a",
+          "#2c3e6a",
+          "#485c8b",
+          "#677cad",
+          "#879ed1",
+          "#acc4f9",
+          "#d5eeff"
+        ]
+      },
+      "band-tab-line": {
+        "role": "neutral",
+        "displayName": "Band Tab Line",
+        "canonical": "#2c3d68",
+        "tonalRamp": [
+          "#01052b",
+          "#122149",
+          "#2d3e69",
+          "#495c8a",
+          "#687cac",
+          "#889ecf",
+          "#adc4f7",
+          "#d6eeff"
+        ]
+      },
+      "band-tab-hover": {
+        "role": "neutral",
+        "displayName": "Band Tab Hover",
+        "canonical": "#22356a",
+        "tonalRamp": [
+          "#010132",
+          "#0f1e51",
+          "#283c72",
+          "#455b94",
+          "#637bb6",
+          "#839dda",
+          "#a8c3ff",
+          "#d1eeff"
+        ]
+      },
+      "jet": {
+        "role": "secondary",
+        "displayName": "Jet Red",
+        "canonical": "#d7262d",
+        "tonalRamp": [
+          "#410000",
+          "#680000",
+          "#900000",
+          "#b7000d",
+          "#df3034",
+          "#ff5a55",
+          "#ff837a",
+          "#ffcfc5"
+        ]
+      },
+      "jet-press": {
+        "role": "secondary",
+        "displayName": "Jet Press",
+        "canonical": "#b31d23",
+        "tonalRamp": [
+          "#3c0000",
+          "#610000",
+          "#870000",
+          "#ae151e",
+          "#d4423f",
+          "#fc6760",
+          "#ff8e84",
+          "#ffcfc5"
+        ]
+      },
+      "jet-ink": {
+        "role": "secondary",
+        "displayName": "Jet Ink",
+        "canonical": "#b01c22",
+        "tonalRamp": [
+          "#3b0000",
+          "#610000",
+          "#870000",
+          "#ad171f",
+          "#d44340",
+          "#fb6861",
+          "#ff8f85",
+          "#ffcfc5"
+        ]
+      },
+      "jet-tint": {
+        "role": "secondary",
+        "displayName": "Jet Tint",
+        "canonical": "#fbe8e8",
+        "tonalRamp": [
+          "#130808",
+          "#2d2020",
+          "#4a3b3c",
+          "#695959",
+          "#897979",
+          "#ab9a9a",
+          "#d1bfbf",
+          "#fce9e9"
+        ]
+      },
+      "carbon": {
+        "role": "tertiary",
+        "displayName": "Carbon Purple",
+        "canonical": "#4b2e83",
+        "tonalRamp": [
+          "#15003c",
+          "#2c045d",
+          "#472a7e",
+          "#654aa1",
+          "#846ac5",
+          "#a58cea",
+          "#cab2ff",
+          "#f4dfff"
+        ]
+      },
+      "lilac": {
+        "role": "tertiary",
+        "displayName": "Carbon Lilac",
+        "canonical": "#d9cfee",
+        "tonalRamp": [
+          "#0e061a",
+          "#271f36",
+          "#433b54",
+          "#615873",
+          "#817894",
+          "#a299b6",
+          "#c8bedd",
+          "#f3e8ff"
+        ]
+      },
+      "lilac-soft": {
+        "role": "tertiary",
+        "displayName": "Lilac Soft",
+        "canonical": "#eee9f8",
+        "tonalRamp": [
+          "#0d0913",
+          "#26222d",
+          "#413d49",
+          "#5f5b68",
+          "#7f7b88",
+          "#a09caa",
+          "#c6c1d0",
+          "#f1ecfb"
+        ]
+      },
+      "warn-ink": {
+        "role": "semantic",
+        "displayName": "Warn Ink",
+        "canonical": "#7a4b00",
+        "tonalRamp": [
+          "#220000",
+          "#411600",
+          "#603300",
+          "#81520d",
+          "#a37235",
+          "#c79357",
+          "#eeb97c",
+          "#ffe3a5"
+        ]
+      },
+      "warn-tint": {
+        "role": "semantic",
+        "displayName": "Warn Tint",
+        "canonical": "#fbf0d6",
+        "tonalRamp": [
+          "#110a00",
+          "#2b230e",
+          "#483f29",
+          "#665d46",
+          "#867c65",
+          "#a89e85",
+          "#cec3aa",
+          "#f9eed4"
+        ]
+      },
+      "ok-ink": {
+        "role": "semantic",
+        "displayName": "OK Ink",
+        "canonical": "#19613f",
+        "tonalRamp": [
+          "#001400",
+          "#003012",
+          "#004d2d",
+          "#276d4a",
+          "#4a8e69",
+          "#6cb089",
+          "#91d6ae",
+          "#bbffd8"
+        ]
+      },
+      "ok-tint": {
+        "role": "semantic",
+        "displayName": "OK Tint",
+        "canonical": "#e1f0e8",
+        "tonalRamp": [
+          "#040e09",
+          "#1c2721",
+          "#37433d",
+          "#54615a",
+          "#74817a",
+          "#94a29b",
+          "#bac8c0",
+          "#e4f3eb"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Stub Numeral",
+        "purpose": "Ticket number on the coupon stub only (2.75rem mobile, 3.5rem md+)."
+      },
+      "headline": {
+        "displayName": "Subject",
+        "purpose": "Open ticket subject (1.35rem to 1.62rem)."
+      },
+      "title": {
+        "displayName": "Row Title",
+        "purpose": "Subjects in list, table and board."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Messages, drafts, replies."
+      },
+      "body-sm": {
+        "displayName": "Body Small",
+        "purpose": "Meta lines, table cells, hints."
+      },
+      "label": {
+        "displayName": "Caps Label",
+        "purpose": "Tabs, buttons, stamps, section heads."
+      },
+      "label-micro": {
+        "displayName": "Field Label",
+        "purpose": "Field labels and urgency chips, ink-3."
+      },
+      "stamp-word": {
+        "displayName": "Stamp Word",
+        "purpose": "Rubber stamp words."
+      },
+      "numeral": {
+        "displayName": "Carbon Numeral",
+        "purpose": "Every number, id, time and count."
+      }
+    },
+    "shadows": [
+      {
+        "name": "coupon",
+        "value": "0 1px 2px rgb(13 27 61 / 0.06), 0 3px 10px -4px rgb(13 27 61 / 0.12)",
+        "purpose": "Resting coupons and the selected wallet row."
+      },
+      {
+        "name": "pop",
+        "value": "0 4px 10px -2px rgb(13 27 61 / 0.14), 0 14px 32px -8px rgb(13 27 61 / 0.22)",
+        "purpose": "Popovers and tooltips."
+      },
+      {
+        "name": "focus-ring-input",
+        "value": "0 0 0 1px #0d1b3d",
+        "purpose": "Input focus (jet-ink for invalid)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Stamp landing."
+      },
+      {
+        "name": "stamp-land",
+        "value": "240ms ease-out-expo; from rotate(-14deg) scale(1.55) opacity 0",
+        "purpose": "The one authored motion: SENT stamp lands on a just-sent reply."
+      },
+      {
+        "name": "state-change",
+        "value": "150-160ms ease-out",
+        "purpose": "Colour/border transitions on controls, rows and tabs."
+      },
+      {
+        "name": "press",
+        "value": "120ms ease-out, translateY(1px)",
+        "purpose": "Button active."
+      },
+      {
+        "name": "skeleton",
+        "value": "1.4s ease-in-out infinite",
+        "purpose": "Loading shimmer; never a spinner."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "durations to 1ms; stamp landing removed",
+        "purpose": "prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "40rem"
+      },
+      {
+        "name": "md",
+        "value": "48rem"
+      },
+      {
+        "name": "lg",
+        "value": "64rem"
+      },
+      {
+        "name": "xl",
+        "value": "80rem"
+      },
+      {
+        "name": "sheet-max",
+        "value": "40rem (popovers become bottom sheets below)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Default outlined control; hover inverts to navy.",
+      "html": "<button class=\"ds-btn\">Reassign</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.25rem;padding:0 .95rem;font-family:var(--font-display),'Barlow Condensed',sans-serif;font-weight:600;font-size:.8125rem;text-transform:uppercase;letter-spacing:.07em;border-radius:3px;border:1.5px solid #0d1b3d;background:#fff;color:#0d1b3d;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out,transform 120ms ease-out}.ds-btn:hover{background:#0d1b3d;color:#fff}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid #0d1b3d;outline-offset:2px}"
+    },
+    {
+      "name": "Navy Button",
+      "kind": "button",
+      "refersTo": "button-navy",
+      "description": "Filled navy for primary non-send actions.",
+      "html": "<button class=\"ds-btn ds-btn-navy\">Save view</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.25rem;padding:0 .95rem;font-family:var(--font-display),'Barlow Condensed',sans-serif;font-weight:600;font-size:.8125rem;text-transform:uppercase;letter-spacing:.07em;border-radius:3px;border:1.5px solid #0d1b3d;background:#fff;color:#0d1b3d;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out,transform 120ms ease-out}.ds-btn:hover{background:#0d1b3d;color:#fff}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid #0d1b3d;outline-offset:2px}.ds-btn-navy{background:#0d1b3d;color:#fff}.ds-btn-navy:hover{background:#1c2d5a;border-color:#1c2d5a}"
+    },
+    {
+      "name": "Send Button",
+      "kind": "button",
+      "refersTo": "button-send",
+      "description": "Jet red; the send action only.",
+      "html": "<button class=\"ds-btn ds-btn-send\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z\"/><path d=\"m21.854 2.147-10.94 10.939\"/></svg>Send reply</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.25rem;padding:0 .95rem;font-family:var(--font-display),'Barlow Condensed',sans-serif;font-weight:600;font-size:.8125rem;text-transform:uppercase;letter-spacing:.07em;border-radius:3px;border:1.5px solid #0d1b3d;background:#fff;color:#0d1b3d;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out,transform 120ms ease-out}.ds-btn:hover{background:#0d1b3d;color:#fff}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid #0d1b3d;outline-offset:2px}.ds-btn-send{background:#d7262d;border-color:#d7262d;color:#fff;height:2.5rem;padding:0 1.4rem;font-weight:700}.ds-btn-send:hover{background:#b31d23;border-color:#b31d23;color:#fff}"
+    },
+    {
+      "name": "Disabled Button",
+      "kind": "button",
+      "refersTo": "button-disabled",
+      "description": "Unavailable stays visible: dashed, readable.",
+      "html": "<button class=\"ds-btn ds-btn-off\" aria-disabled=\"true\">Close ticket</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.25rem;padding:0 .95rem;font-family:var(--font-display),'Barlow Condensed',sans-serif;font-weight:600;font-size:.8125rem;text-transform:uppercase;letter-spacing:.07em;border-radius:3px;border:1.5px solid #0d1b3d;background:#fff;color:#0d1b3d;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out,transform 120ms ease-out}.ds-btn:hover{background:#0d1b3d;color:#fff}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid #0d1b3d;outline-offset:2px}.ds-btn-off,.ds-btn-off:hover{cursor:not-allowed;background:#f6f7f9;border-color:#4a5370;border-style:dashed;color:#34405e;transform:none}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Ruled field with condensed caps label.",
+      "html": "<label class=\"ds-label\" for=\"ds-i\">Customer email</label><input id=\"ds-i\" class=\"ds-input\" placeholder=\"name@example.com\">",
+      "css": ".ds-label{display:block;margin-bottom:.3rem;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#34405e}.ds-input{display:block;width:100%;min-height:2.5rem;padding:.5rem .75rem;font:inherit;font-size:.9375rem;color:#0d1b3d;background:#fff;border:1px solid #4a5370;border-radius:3px;transition:border-color 160ms ease-out,box-shadow 160ms ease-out}.ds-input::placeholder{color:#4a5370}.ds-input:hover{border-color:#0d1b3d}.ds-input:focus{outline:none;border-color:#0d1b3d;box-shadow:0 0 0 1px #0d1b3d}"
+    },
+    {
+      "name": "Coupon Tabs",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Chamfered tabs on a coupon's top rule.",
+      "html": "<div class=\"ds-tabrow\"><span class=\"ds-tab ds-tab-navy\">Email ticket</span><span class=\"ds-tab ds-tab-red\">High urgency</span><span class=\"ds-tab\">Billing</span></div><div class=\"ds-coupon-edge\"></div>",
+      "css": ".ds-tabrow{display:flex;gap:.25rem;padding-left:1rem;margin-bottom:-1px;position:relative;z-index:1}.ds-tab{display:inline-flex;align-items:center;height:1.625rem;padding:0 .875rem;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#0d1b3d;background:#fff;border:1px solid #0d1b3d;border-bottom:0;clip-path:polygon(7px 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%,0 7px)}.ds-tab-navy{background:#0d1b3d;color:#fff}.ds-tab-red{background:#d7262d;border-color:#d7262d;color:#fff}.ds-coupon-edge{height:24px;border:1px solid #0d1b3d;border-bottom:0;border-radius:4px 4px 0 0;background:#fff}"
+    },
+    {
+      "name": "Status Stamps",
+      "kind": "chip",
+      "refersTo": "stamp-open",
+      "description": "Small ruled stamps for status in lists.",
+      "html": "<span class=\"ds-stamp\">Open</span> <span class=\"ds-stamp ds-stamp-rep\">Replied</span> <span class=\"ds-stamp ds-stamp-cl\">Closed</span>",
+      "css": ".ds-stamp{display:inline-flex;align-items:center;padding:.05rem .4rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.75rem;line-height:1.1rem;text-transform:uppercase;letter-spacing:.08em;border:1.5px solid currentColor;border-radius:2px;color:#0d1b3d}.ds-stamp-rep{color:#4b2e83}.ds-stamp-cl{color:#b01c22;background:#fbe8e8}"
+    },
+    {
+      "name": "Rubber Stamp",
+      "kind": "custom",
+      "refersTo": "carbon-copy",
+      "description": "Rotated SENT stamp on a lilac carbon copy.",
+      "html": "<div class=\"ds-cc\"><div class=\"ds-rubber\"><span class=\"ds-rw\">Sent</span><span class=\"ds-rm\">Alice Agent</span><span class=\"ds-rm ds-mono\">31 Oct 14:05 UTC</span></div></div>",
+      "css": ".ds-cc{background:#d9cfee;border:1px solid rgb(75 46 131/.4);border-radius:4px;padding:1rem;display:flex;justify-content:flex-end}.ds-rubber{display:inline-flex;flex-direction:column;padding:.3rem .6rem .35rem;border:2px solid #0d1b3d;outline:1px solid #0d1b3d;outline-offset:2px;border-radius:3px;transform:rotate(-5deg);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;line-height:1;color:#0d1b3d;transition:transform 240ms cubic-bezier(.16,1,.3,1)}.ds-rubber:hover{transform:rotate(-3deg) scale(1.03)}.ds-rw{font-weight:700;font-size:1.35rem;letter-spacing:.12em}.ds-rm{margin-top:.2rem;font-weight:600;font-size:.6875rem;letter-spacing:.06em}.ds-mono{font-family:'JetBrains Mono',monospace;text-transform:none;letter-spacing:0}"
+    },
+    {
+      "name": "Wallet Row",
+      "kind": "card",
+      "refersTo": "list-row",
+      "description": "Mini coupon: carbon numeral stub, dashed divider, subject and stamp.",
+      "html": "<a class=\"ds-row\" href=\"#\"><span class=\"ds-stub\"><span class=\"ds-num\">#0014</span><span class=\"ds-num\">18h</span></span><span class=\"ds-body\"><span class=\"ds-subj\">Nonprofit discount?</span><span class=\"ds-meta\">Grace Liu / Unassigned</span></span></a>",
+      "css": ".ds-row{display:grid;grid-template-columns:4rem 1fr;border:1px solid #c8ccd8;border-radius:4px;background:#fff;overflow:hidden;text-decoration:none;color:#0d1b3d;transition:background-color 150ms,border-color 150ms}.ds-row:hover{border-color:#0d1b3d;background:#eceff5}.ds-row:focus-visible{outline:2px solid #0d1b3d;outline-offset:1px}.ds-stub{display:flex;flex-direction:column;justify-content:space-between;gap:.25rem;padding:.375rem .5rem;background:#f6f7f9;border-right:1px dashed #4a5370}.ds-num{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#4b2e83;font-variant-numeric:tabular-nums slashed-zero}.ds-body{padding:.375rem .75rem;display:flex;flex-direction:column}.ds-subj{font-weight:500}.ds-meta{font-size:.8125rem;color:#34405e}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Jet-Age Ticket Wallet",
+    "overview": "**Creative North Star: \"The Jet-Age Ticket Wallet\"**\n\nSift is a wallet of airline coupons. Each customer ticket is a white coupon ruled in carrier-navy hairlines, with a stub that carries its number, perforations that tear it into sections, and tabs that sit on its top edge like folder tabs. A reply is not a toast or a checkmark: it is a rotated rubber stamp (SENT, with who and when) on a lilac carbon copy. State is applied to the paper, never hidden: closed tickets are stamped VOID, errors and 404s are void coupons, and disabled controls go dashed rather than vanishing.\n\nThe room is stock-white and navy, dense and calm, built for an agent who keeps it open all shift. A navy header band with a jet-red speed stripe frames everything; below it, the work surface is flat paper with one quiet coupon shadow. Colour is rationed: navy is the voice, carbon purple speaks only for real data (numbers, times, counts), and jet red is the alarm and the send. Condensed airline caps label every tab, stamp and field; one grotesk body carries the prose; a mono face carries the numerals.\n\nIt explicitly rejects the grey SaaS sidebar-and-feed helpdesk: no left nav column of icons, no card soup, no gradient chrome, no spinners.",
+    "keyCharacteristics": [
+      "Navy hairline coupons on a warm stock-white ground; flat, with one soft coupon shadow.",
+      "Chamfered tabs on coupon heads and on the header band.",
+      "Dashed perforations with half-circle notches split coupon sections and stubs.",
+      "Rubber stamps (rotated, double-ruled) for status; small ruled stamps for status in lists.",
+      "Carbon-purple tabular mono numerals for every ticket number, age, time and count.",
+      "Jet red rationed to send, HIGH urgency, VOID/closed, and the band's speed identity.",
+      "Lucide line icons at 1.5 stroke, 14-16px."
+    ],
+    "rules": [
+      {
+        "name": "The Rationed Red Rule",
+        "body": "Jet red marks what must happen now (send, HIGH, VOID) and the band's identity. Never use it for decoration, links, generic primary actions or hover states.",
+        "section": "colors"
+      },
+      {
+        "name": "The Real Numbers Rule",
+        "body": "Carbon purple in tabular mono is reserved for real data. If a value is not a number, id, time or count, it is not carbon.",
+        "section": "colors"
+      },
+      {
+        "name": "The AA Pair Rule",
+        "body": "Every text/background pair is documented at WCAG AA or better in globals.css. Red text on light grounds uses jet-ink; white text on jet is 5.0:1.",
+        "section": "colors"
+      },
+      {
+        "name": "The Caps Label, Sentence Body Rule",
+        "body": "If it names a thing, it is condensed caps; if a person wrote it, it is sentence-case Barlow. Do not set prose in caps or labels in body type.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Lift Rule",
+        "body": "Paper does not float. Hover changes border and tint, never shadow; only popovers rise.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do put every ticket in a coupon: navy hairline, 4px corners, tabs on top, perforation between sections.",
+      "Do set every number, id, time and count in carbon tabular mono (`.num`).",
+      "Do show state as a stamp: ruled stamps in lists, rotated rubber stamps on the open coupon, VOID for closed and errors.",
+      "Do keep red to send, HIGH, VOID/closed and the band identity, and use jet-ink for red text.",
+      "Do label in condensed caps (0.06-0.08em) and write prose in sentence-case Barlow.",
+      "Do keep transitions to 150-160ms ease-out colour changes; the stamp landing is the only authored motion, and reduced motion removes it.",
+      "Do use Lucide icons at 1.5 stroke, 14-16px."
+    ],
+    "donts": [
+      "Don't build a grey SaaS sidebar-and-feed helpdesk layout.",
+      "Don't use spinners; use the skeleton shimmer.",
+      "Don't hide unavailable actions; show them dashed with a reason.",
+      "Don't add shadows on hover or new elevation levels beyond coupon and pop.",
+      "Don't round corners past 4px or use pill buttons.",
+      "Don't use carbon purple or mono for non-data text.",
+      "Don't make it dark-only; the paper world is the default."
+    ]
+  }
+}
