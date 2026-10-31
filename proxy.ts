@@ -2,7 +2,6 @@
 // session cookie on everything except PUBLIC_PATHS. Route handlers still call
 // requireUser/requireAdmin (lib/auth), which also checks the user exists and their role.
 import { NextResponse, type NextRequest } from "next/server";
-import { relativeRedirect } from "@/lib/http";
 import { isPublicPath } from "@/lib/auth/public-paths";
 import { readSessionToken, SESSION_COOKIE } from "@/lib/auth/session";
 
@@ -16,8 +15,10 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Sign in required", code: "unauthorized" }, { status: 401 });
   }
-  // Relative on purpose: req.url holds the bound address (0.0.0.0:3000) behind the proxy.
-  return relativeRedirect("/sign-in", 307);
+  // Next's proxy adapter rejects a relative Location (500 "Invalid URL"). It does rewrite a
+  // same-host redirect to a relative Location itself (getRelativeURL), so building the URL from
+  // req.url is host-safe: the browser receives "Location: /sign-in", never the bound 0.0.0.0.
+  return NextResponse.redirect(new URL("/sign-in", req.url), 307);
 }
 
 export const config = {

@@ -2,18 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BookOpen, CircleAlert, Clock, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
 import type { TriageView } from "@/lib/triage";
+import { CategoryLabel, UrgencyTab } from "../../_components/ticket-labels";
 
 /** TriageView as JSON (dates as ISO strings), as returned by /api/tickets/:id/triage. */
 type Jsonify<T> = T extends unknown ? Omit<T, "createdAt"> & { createdAt: string } : never;
 export type TriageViewJson = Jsonify<TriageView>;
 
-const URGENCY_STYLES = {
-  low: "bg-slate-100 text-slate-700",
-  medium: "bg-amber-100 text-amber-800",
-  high: "bg-red-100 text-red-800",
-};
+type Problem = { kind: "cap" | "error"; message: string } | null;
 
+function when(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleString("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" });
+  const time = d.toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
+  return `${date} ${time} UTC`;
+}
+
+/**
+ * AI triage strip: request (on demand, cost-capped), loading, the result (category, urgency,
+ * source article), a failed attempt with its raw output collapsed, the daily cap, and the
+ * admin-only regenerate with an inline confirm.
+ */
 export function TriagePanelClient({
   ticketId,
   initial,
@@ -26,14 +36,20 @@ export function TriagePanelClient({
   const router = useRouter();
   const [triage, setTriage] = useState<TriageViewJson | null>(initial);
   const [pending, setPending] = useState(false);
-  const [requestError, setRequestError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [problem, setProblem] = useState<Problem>(null);
+  const [lastInitialId, setLastInitialId] = useState(initial?.id ?? null);
+
+  // A refresh brought a newer stored attempt (e.g. another tab regenerated): show it.
+  if ((initial?.id ?? null) !== lastInitialId) {
+    setLastInitialId(initial?.id ?? null);
+    setTriage(initial);
+  }
 
   async function run(force = false) {
-    if (force && !window.confirm("Regenerate this triage? This makes a new AI call and replaces the current result.")) {
-      return;
-    }
+    setConfirming(false);
     setPending(true);
-    setRequestError(null);
+    setProblem(null);
     try {
       const res = await fetch(
         `/api/tickets/${ticketId}/triage`,
@@ -46,99 +62,130 @@ export function TriagePanelClient({
         setTriage(json.triage);
         // Re-render server parts (e.g. the reply editor prefilled from the draft).
         router.refresh();
+      } else if (res.status === 429) {
+        setProblem({ kind: "cap", message: json?.error ?? "Today's AI limit has been reached. Write the reply manually." });
       } else {
-        setRequestError(json?.error ?? `Triage request failed (${res.status}).`);
+        setProblem({ kind: "error", message: json?.error ?? `Triage request failed (${res.status}).` });
       }
     } catch {
-      setRequestError("Could not reach the server. Try again.");
+      setProblem({ kind: "error", message: "Could not reach the server. Try again." });
     } finally {
       setPending(false);
     }
   }
 
+  const ok = triage?.status === "ok" ? triage : null;
+  const failed = triage?.status === "error" ? triage : null;
+
   return (
-    <section aria-label="AI triage" aria-busy={pending} className="rounded-lg border border-slate-200 bg-white p-5">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">AI triage</h2>
-        {triage?.status === "ok" && canRegenerate && (
-          <button
-            type="button"
-            onClick={() => run(true)}
-            disabled={pending}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-          >
-            {pending ? "Regenerating..." : "Regenerate (admin)"}
-          </button>
+    <section aria-label="AI triage" aria-busy={pending} className="coupon-quiet">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+        <h2 className="flex items-center gap-1.5 caps text-sm text-ink">
+          <Sparkles className="size-4" strokeWidth={1.5} aria-hidden="true" />
+          AI triage
+        </h2>
+
+        {ok && !pending && (
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <UrgencyTab urgency={ok.urgency} />
+            <CategoryLabel category={ok.category} />
+            {ok.article ? (
+              <span className="inline-flex min-w-0 items-center gap-1 text-ink-2">
+                <BookOpen className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+                <span className="truncate">{ok.article.title}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 font-medium text-warn-ink">
+                <TriangleAlert className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+                Not grounded
+              </span>
+            )}
+            <span className="num text-xs" title={`Model ${ok.model}`}>
+              {when(ok.createdAt)}
+            </span>
+          </div>
         )}
-        {triage?.status !== "ok" && (
-          <button
-            type="button"
-            onClick={() => run()}
-            disabled={pending}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
-          >
-            {pending ? "Triaging..." : triage?.status === "error" ? "Retry triage" : "Triage with AI"}
-          </button>
+        {!triage && !pending && (
+          <p className="flex-1 text-sm text-ink-2">Not triaged yet. Triage runs only when you ask, and counts toward today&apos;s AI limit.</p>
         )}
-      </div>
+        {failed && !pending && <p className="flex-1 text-sm font-medium text-jet-ink">The latest triage attempt failed.</p>}
+        {pending && (
+          <div className="flex flex-1 items-center gap-3" role="status">
+            <span className="sr-only">Asking the AI for a category, urgency and draft. This takes a few seconds.</span>
+            <span className="skel h-5 w-14" aria-hidden="true" />
+            <span className="skel h-3.5 w-20" aria-hidden="true" />
+            <span className="skel h-3.5 w-40" aria-hidden="true" />
+            <span className="text-xs text-ink-2" aria-hidden="true">
+              Reading the ticket…
+            </span>
+          </div>
+        )}
 
-      {pending && (
-        <p role="status" className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-          <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
-          Asking the AI for a category, urgency and draft. This takes a few seconds.
-        </p>
-      )}
-
-      {requestError && !pending && (
-        <p role="alert" className="mt-3 text-sm text-red-700">
-          {requestError}
-        </p>
-      )}
-
-      {!triage && !pending && (
-        <p className="mt-3 text-sm text-slate-500">Not triaged yet. Triage runs only when you ask for it.</p>
-      )}
-
-      {triage?.status === "error" && !pending && (
-        <div role="alert" className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm">
-          <p className="font-medium text-red-800">The latest triage attempt failed. The reply box keeps the last valid draft, if there is one; otherwise write the reply manually or retry.</p>
-          <p className="mt-1 text-red-700">{triage.error}</p>
-          {triage.rawOutput !== null && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-red-700">Show raw AI output</summary>
-              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-white p-2 text-xs text-slate-700">
-                {triage.rawOutput || "(empty)"}
-              </pre>
-            </details>
+        <div className="ml-auto flex items-center gap-2">
+          {!ok && (
+            <button type="button" onClick={() => run()} disabled={pending} className="btn btn-sm btn-navy">
+              <Sparkles className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+              {pending ? "Triaging…" : failed ? "Retry triage" : "Triage with AI"}
+            </button>
+          )}
+          {ok && canRegenerate && !confirming && (
+            <button type="button" onClick={() => setConfirming(true)} disabled={pending} className="btn btn-sm">
+              <RefreshCw className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+              {pending ? "Regenerating…" : "Regenerate"}
+            </button>
           )}
         </div>
-      )}
+      </div>
 
-      {triage?.status === "ok" && (
-        <div className="mt-3 space-y-3 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-800">
-              {triage.category.replace("_", " ")}
-            </span>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${URGENCY_STYLES[triage.urgency]}`}>
-              {triage.urgency} urgency
-            </span>
-            <span className="text-xs text-slate-500">
-              {triage.article ? (
-                <>
-                  Based on: <span className="text-slate-700">{triage.article.title}</span>
-                </>
-              ) : (
-                <span className="text-amber-700">Ungrounded: not based on any help article, review carefully</span>
-              )}
-            </span>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Suggested draft (review before sending)</p>
-            <p className="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-slate-800">{triage.draft}</p>
-          </div>
+      {confirming && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-rule-soft bg-panel-2 px-4 py-3 text-sm" role="group" aria-label="Confirm regenerate">
+          <p className="flex-1 text-ink-2">
+            Regenerate makes a new AI call (it counts toward today&apos;s limit) and replaces the current draft for everyone.
+          </p>
+          <button type="button" className="btn btn-sm btn-navy" onClick={() => run(true)} autoFocus>
+            Regenerate draft
+          </button>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setConfirming(false)}>
+            Keep current
+          </button>
         </div>
       )}
+
+      <div aria-live="polite">
+        {problem && !pending && (
+          <p
+            role="alert"
+            className={`flex items-start gap-2 border-t px-4 py-3 text-sm ${
+              problem.kind === "cap" ? "border-warn-ink/30 bg-warn-tint text-warn-ink" : "border-jet-ink/30 bg-jet-tint text-jet-ink"
+            }`}
+          >
+            {problem.kind === "cap" ? (
+              <Clock className="mt-0.5 size-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+            ) : (
+              <CircleAlert className="mt-0.5 size-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+            )}
+            {problem.message}
+          </p>
+        )}
+        {failed && !pending && (
+          <div className="border-t border-jet-ink/30 bg-jet-tint px-4 py-3 text-sm text-jet-ink">
+            <p>{failed.error}</p>
+            <p className="mt-1 text-ink-2">
+              The reply box keeps the last valid draft, if there is one. Otherwise write the reply by hand or retry.
+            </p>
+            {failed.rawOutput !== null && (
+              <details className="mt-2">
+                <summary className="cursor-pointer font-display text-xs font-semibold uppercase tracking-[0.08em] text-jet-ink">
+                  Show raw AI output
+                </summary>
+                <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-[var(--radius-control)] border border-rule-soft bg-panel p-2 font-mono text-xs text-ink">
+                  {failed.rawOutput || "(empty)"}
+                </pre>
+              </details>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

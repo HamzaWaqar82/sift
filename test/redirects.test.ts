@@ -31,12 +31,21 @@ describe("sign-out redirect", () => {
 });
 
 describe("proxy auth redirect", () => {
-  it("redirects signed-out page requests to a relative /sign-in", async () => {
+  it("redirects signed-out page requests to /sign-in on the request's own host", async () => {
+    // Next's proxy adapter throws on a relative Location, and relativizes a same-host one before it
+    // reaches the browser. So the proxy must answer with the request's own host, nothing else.
     const { proxy } = await import("@/proxy");
     const res = await proxy(new NextRequest("http://0.0.0.0:3000/tickets/1"));
     expect([302, 303, 307, 308]).toContain(res.status);
-    expectHostSafe(res.headers.get("location"));
-    expect(res.headers.get("location")).toBe("/sign-in");
+    const location = new URL(res.headers.get("location")!);
+    expect(location.host).toBe("0.0.0.0:3000");
+    expect(location.pathname).toBe("/sign-in");
+  });
+
+  it("the same-host redirect reaches the browser as a relative Location", async () => {
+    const { getRelativeURL } = await import("next/dist/shared/lib/router/utils/relativize-url");
+    expect(getRelativeURL("http://0.0.0.0:3000/sign-in", "http://0.0.0.0:3000/tickets/1")).toBe("/sign-in");
+    expectHostSafe(getRelativeURL("http://0.0.0.0:3000/sign-in", "http://0.0.0.0:3000/tickets/1"));
   });
 
   it("still returns 401 JSON for signed-out API calls", async () => {

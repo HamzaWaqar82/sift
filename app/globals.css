@@ -39,28 +39,28 @@
   /* Carrier navy ink and its navy-tinted neutrals. */
   --color-ink: #0d1b3d; /* 16.9:1 on white, 15.1:1 on ground */
   --color-ink-2: #34405e; /* secondary text: 10.3:1 on white, 9.2:1 on ground */
-  --color-ink-3: #565f7a; /* tertiary + placeholders: 6.3:1 on white, 5.6:1 on ground, 5.2:1 on navy-tint */
+  --color-ink-3: #565f7a; /* tertiary + placeholders: 6.3:1 on white, 5.7:1 on ground, 5.1:1 on navy-tint */
   --color-rule: #0d1b3d; /* hairline rules */
   --color-rule-soft: #c8ccd8; /* in-coupon row dividers (non-text) */
   --color-navy-tint: #e3e7f1; /* selected row / replied chip */
   --color-navy-hover: #eceff5; /* row hover */
-  --color-band-ink: #c3cbe0; /* secondary text on the navy band: 9.6:1 */
+  --color-band-ink: #c3cbe0; /* secondary text on the navy band: 10.4:1 */
 
   /* Jet red: send, HIGH urgency, VOID / closed stamps. */
-  --color-jet: #d7262d; /* white text on it: 4.95:1; on white 4.95:1 */
+  --color-jet: #d7262d; /* white text on it: 5.0:1; on white 5.0:1 */
   --color-jet-press: #b31d23;
-  --color-jet-ink: #b01c22; /* red text on ground/white/tints: 6.0:1 on ground */
+  --color-jet-ink: #b01c22; /* red text on ground/white/tints: 6.2:1 on ground */
   --color-jet-tint: #fbe8e8;
 
   /* Carbon purple numerals, lilac carbon copies. */
-  --color-carbon: #4b2e83; /* 10.4:1 on white, 7.6:1 on lilac */
-  --color-lilac: #d9cfee; /* carbon copy of a sent reply; navy text 12.2:1 */
+  --color-carbon: #4b2e83; /* 10.4:1 on white, 7.0:1 on lilac */
+  --color-lilac: #d9cfee; /* carbon copy of a sent reply; navy text 11.4:1 */
   --color-lilac-soft: #eee9f8;
 
   /* Semantic states. */
-  --color-warn-ink: #7a4b00; /* 7.0:1 on warn-tint */
+  --color-warn-ink: #7a4b00; /* 6.5:1 on warn-tint */
   --color-warn-tint: #fbf0d6;
-  --color-ok-ink: #19613f; /* 6.9:1 on ok-tint */
+  --color-ok-ink: #19613f; /* 6.3:1 on ok-tint */
   --color-ok-tint: #e1f0e8;
   --color-info-ink: #0d1b3d;
   --color-info-tint: #e3e7f1;
@@ -181,12 +181,13 @@
     clip-path: inherit;
   }
   .tab::before {
-    background: var(--color-rule);
+    background: var(--tab-line, var(--color-rule));
+    transition: background-color 160ms ease-out;
   }
   .tab::after {
     inset: 1px 1px 0 1px;
-    background: inherit;
     background: var(--tab-fill, var(--color-panel));
+    transition: background-color 160ms ease-out;
     clip-path: polygon(
       calc(var(--tab-cut) - 0.6px) 0,
       calc(100% - var(--tab-cut) + 0.6px) 0,
@@ -206,6 +207,15 @@
   }
   .tab[data-tone="ground"] {
     --tab-fill: var(--color-ground);
+    --tab-line: var(--color-ground);
+  }
+  .tab[data-tone="band"] {
+    --tab-fill: #172751;
+    --tab-line: #2c3d68;
+    background: transparent;
+  }
+  .tab[data-tone="band"]:hover {
+    --tab-fill: #22356a;
   }
   /* A coupon head row: tabs that sit on the coupon's top rule. */
   .tab-row {
@@ -244,29 +254,31 @@
     right: -9px;
     clip-path: inset(-1px 8px -1px -1px);
   }
-  /* Vertical perforation for wide coupons (stub at left). */
-  .perf-v {
-    position: relative;
-    border-left: 1.5px dashed var(--color-rule);
-  }
-  .perf-v::before,
-  .perf-v::after {
-    content: "";
-    position: absolute;
-    left: -9px;
-    width: 16px;
-    height: 16px;
-    border-radius: 999px;
-    background: var(--perf-bg, var(--color-ground));
-    border: 1px solid var(--color-rule);
-  }
-  .perf-v::before {
-    top: -9px;
-    clip-path: inset(8px -1px -1px -1px);
-  }
-  .perf-v::after {
-    bottom: -9px;
-    clip-path: inset(-1px -1px 8px -1px);
+  /* Vertical perforation for wide coupons (stub at left); only from md up. */
+  @media (min-width: 48rem) {
+    .perf-v {
+      position: relative;
+      border-left: 1.5px dashed var(--color-rule);
+    }
+    .perf-v::before,
+    .perf-v::after {
+      content: "";
+      position: absolute;
+      left: -9px;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: var(--perf-bg, var(--color-ground));
+      border: 1px solid var(--color-rule);
+    }
+    .perf-v::before {
+      top: -9px;
+      clip-path: inset(8px -1px -1px -1px);
+    }
+    .perf-v::after {
+      bottom: -9px;
+      clip-path: inset(-1px -1px 8px -1px);
+    }
   }
 
   /* Ruled field: label caps over value, separated by navy hairlines. */
@@ -423,6 +435,19 @@
   .btn-send:hover {
     background: var(--color-jet-press);
     border-color: var(--color-jet-press);
+  }
+  /* Busy/disabled filled buttons keep their hue so the loading label stays readable (AA). */
+  .btn-navy:disabled,
+  .btn-navy:disabled:hover {
+    background: #2a3a63;
+    border-color: #2a3a63;
+    color: #dfe4f0;
+  }
+  .btn-send:disabled,
+  .btn-send:disabled:hover {
+    background: var(--color-jet-press);
+    border-color: var(--color-jet-press);
+    color: #fff;
   }
   .btn-ghost {
     border-color: transparent;

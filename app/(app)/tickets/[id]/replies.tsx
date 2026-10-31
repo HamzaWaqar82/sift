@@ -1,39 +1,44 @@
-import { listReplies } from "@/lib/replies";
-import type { TicketDetail } from "@/lib/tickets";
-import { timeAgo } from "../../_components/ticket-labels";
-import { WithArticlePanel } from "./article-panel";
-import { ReplyEditor } from "./reply-editor";
+import type { Reply } from "@/lib/replies";
+import { stampTime } from "../../_components/ticket-labels";
+import { SentStamp } from "./sent-stamp";
 
-/** Sent replies (thread) and the reply editor for one ticket. */
-export async function TicketReplies({ ticket }: { ticket: TicketDetail }) {
-  const replies = await listReplies(ticket.id);
+/**
+ * The thread: each sent reply as a lilac carbon copy, stamped SENT with who and when, and whether
+ * the AI draft was sent as-is or edited.
+ */
+export function Thread({ replies }: { replies: Reply[] }) {
+  if (replies.length === 0) return null;
   return (
-    <div className="mt-4 space-y-4">
-      {replies.map((r) => (
-        <article key={r.id} className="rounded-lg border border-sky-200 bg-sky-50 p-5">
-          <header className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-            <span>
-              <span className="font-medium text-slate-800">{r.sentBy.name}</span> replied
-            </span>
-            <time dateTime={r.sentAt.toISOString()} title={r.sentAt.toISOString()}>
-              {timeAgo(r.sentAt)}
-            </time>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs ${r.edited ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}
+    <section aria-label="Sent replies" className="space-y-3">
+      <h2 className="caps text-sm text-ink-2">
+        Sent replies <span className="num text-xs">{replies.length}</span>
+      </h2>
+      <ol className="space-y-3">
+        {replies.map((r) => (
+          <li key={r.id}>
+            <article
+              aria-label={`Reply sent by ${r.sentBy.name}`}
+              className="relative overflow-hidden rounded-[var(--radius-coupon)] border border-carbon/40 bg-lilac"
             >
-              {r.edited ? "edited" : "unedited"}
-              {r.aiDraft === null && " (no AI draft)"}
-            </span>
-          </header>
-          <div className="whitespace-pre-wrap break-words text-slate-800">{r.finalBody}</div>
-        </article>
-      ))}
-      <WithArticlePanel grounding={ticket.grounding}>
-        <ReplyEditor
-          ticketId={ticket.id}
-          draft={ticket.currentTriage && { triageId: ticket.currentTriage.id, text: ticket.currentTriage.draft }}
-        />
-      </WithArticlePanel>
-    </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-carbon/50 px-4 py-2">
+                <p className="text-sm text-ink">
+                  <span className="font-semibold">{r.sentBy.name}</span>
+                  <span className="text-ink-2"> replied</span>
+                </p>
+                <span className="font-display text-xs font-semibold uppercase tracking-[0.08em] text-carbon">
+                  {r.aiDraft === null ? "Written by hand" : r.edited ? "AI draft, edited" : "AI draft, unedited"}
+                </span>
+              </div>
+              <div className="grid gap-4 px-4 py-4 sm:grid-cols-[1fr_auto]">
+                <div className="max-w-[72ch] whitespace-pre-wrap break-words text-ink">{r.finalBody}</div>
+                <div className="self-start justify-self-end sm:pt-1">
+                  <SentStamp replyId={r.id} name={r.sentBy.name} time={stampTime(r.sentAt)} iso={r.sentAt.toISOString()} />
+                </div>
+              </div>
+            </article>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

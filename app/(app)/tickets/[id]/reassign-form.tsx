@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 type User = { id: number; name: string; email: string };
 
+/** Admin-only owner picker (agents see the owner's name; the API also refuses them with 403). */
 export function ReassignForm({
   ticketId,
   currentAssigneeId,
@@ -15,20 +16,24 @@ export function ReassignForm({
   users: User[];
 }) {
   const router = useRouter();
+  const id = useId();
   const [value, setValue] = useState(currentAssigneeId === null ? "" : String(currentAssigneeId));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setPending(true);
     setError(null);
+    setSaved(false);
     const res = await fetch(`/api/tickets/${ticketId}/assign`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ assigneeId: value === "" ? null : Number(value) }),
     }).catch(() => null);
     if (res?.ok) {
+      setSaved(true);
       router.refresh();
     } else {
       const body = await res?.json().catch(() => null);
@@ -40,35 +45,39 @@ export function ReassignForm({
   const unchanged = value === (currentAssigneeId === null ? "" : String(currentAssigneeId));
 
   return (
-    <form onSubmit={save} className="flex flex-wrap items-center gap-2 text-sm">
-      <label htmlFor="assignee" className="text-slate-600">
+    <form onSubmit={save} className="flex flex-wrap items-center gap-1.5">
+      <label htmlFor={id} className="sr-only">
         Reassign to
       </label>
       <select
-        id="assignee"
+        id={id}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-slate-800"
+        onChange={(e) => {
+          setValue(e.target.value);
+          setSaved(false);
+        }}
+        className="h-[1.875rem] min-w-0 max-w-[11rem] rounded-[var(--radius-control)] border border-ink-3 bg-panel px-1.5 text-sm text-ink hover:border-ink"
       >
         <option value="">Unassigned</option>
         {users.map((u) => (
           <option key={u.id} value={u.id}>
-            {u.name} ({u.email})
+            {u.name}
           </option>
         ))}
       </select>
-      <button
-        type="submit"
-        disabled={pending || unchanged}
-        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-      >
-        {pending ? "Saving..." : "Save"}
-      </button>
-      {error && (
-        <p role="alert" className="w-full text-xs text-red-700">
-          {error}
-        </p>
+      {!unchanged && (
+        <button type="submit" disabled={pending} className="btn btn-sm">
+          {pending ? "Saving…" : "Reassign"}
+        </button>
       )}
+      <span aria-live="polite" className="text-xs">
+        {saved && unchanged && <span className="text-ok-ink">Reassigned</span>}
+        {error && (
+          <span role="alert" className="text-jet-ink">
+            {error}
+          </span>
+        )}
+      </span>
     </form>
   );
 }

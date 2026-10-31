@@ -1,56 +1,109 @@
-import type { TicketSource, TicketStatus } from "@/lib/db/schema";
+import { Mail, PenLine } from "lucide-react";
+import type { TicketSource, TicketStatus, TriageCategory, TriageUrgency } from "@/lib/db/schema";
 import type { TriageSummary } from "@/lib/tickets";
+import { LABELS } from "../_lib/params";
 
-const STATUS_STYLES: Record<TicketStatus, string> = {
-  open: "bg-amber-100 text-amber-800",
-  replied: "bg-sky-100 text-sky-800",
-  closed: "bg-slate-200 text-slate-700",
-};
-
-export function StatusBadge({ status }: { status: TicketStatus }) {
+/** "#0042": the ticket number in carbon-purple tabular numerals. */
+export function TicketNo({ id, className = "" }: { id: number; className?: string }) {
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLES[status]}`}>
-      {status}
+    <span className={`num ${className}`} aria-label={`Ticket ${id}`}>
+      #{String(id).padStart(4, "0")}
     </span>
   );
 }
 
-export function SourceLabel({ source }: { source: TicketSource }) {
-  return <span className="text-xs text-slate-500">{source === "webhook" ? "Email" : "Form"}</span>;
+/** Status as a small stamp: OPEN (navy), REPLIED (carbon), CLOSED (red). */
+export function StatusStamp({ status }: { status: TicketStatus }) {
+  return (
+    <span className="stamp" data-state={status}>
+      {LABELS.status[status]}
+    </span>
+  );
 }
 
-const URGENCY_BADGE_STYLES = {
-  low: "bg-slate-100 text-slate-700",
-  medium: "bg-amber-100 text-amber-800",
-  high: "bg-red-100 text-red-800 font-semibold",
+const URGENCY_STYLE: Record<TriageUrgency, string> = {
+  high: "bg-jet text-white border-jet",
+  medium: "bg-panel text-ink border-ink",
+  low: "bg-panel text-ink-2 border-rule-soft",
 };
 
-/** Category and urgency badges for tickets whose latest triage is valid; a clear marker otherwise. */
+/** Urgency tab: HIGH is the only red one in the list. */
+export function UrgencyTab({ urgency }: { urgency: TriageUrgency }) {
+  return (
+    <span
+      className={`inline-flex h-5 items-center border px-1.5 font-display text-2xs font-semibold uppercase tracking-[0.08em] ${URGENCY_STYLE[urgency]}`}
+      style={{ clipPath: "polygon(4px 0, 100% 0, 100% 100%, 0 100%, 0 4px)" }}
+    >
+      <span className="sr-only">Urgency </span>
+      {LABELS.urgency[urgency]}
+    </span>
+  );
+}
+
+export function CategoryLabel({ category }: { category: TriageCategory }) {
+  return (
+    <span className="font-display text-xs font-semibold uppercase tracking-[0.07em] text-ink-2">
+      <span className="sr-only">Category </span>
+      {LABELS.category[category]}
+    </span>
+  );
+}
+
+export function SourceLabel({ source, withIcon = false }: { source: TicketSource; withIcon?: boolean }) {
+  const Icon = source === "webhook" ? Mail : PenLine;
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-ink-2">
+      {withIcon && <Icon className="size-3.5" strokeWidth={1.5} aria-hidden="true" />}
+      {LABELS.source[source]}
+    </span>
+  );
+}
+
+/** Category + urgency of the current triage; a "not triaged" / "triage failed" marker otherwise. */
 export function TriageMarker({ triage }: { triage: TriageSummary }) {
   if (!triage) {
-    return <span className="text-xs italic text-slate-400">Not triaged yet</span>;
+    return (
+      <span className="inline-flex h-5 items-center border border-dashed border-ink-3 px-1.5 font-display text-2xs font-semibold uppercase tracking-[0.08em] text-ink-3">
+        Not triaged
+      </span>
+    );
   }
   if (!triage.ok) {
-    return <span className="text-xs text-red-600">Triage failed</span>;
+    return (
+      <span className="inline-flex h-5 items-center border border-dashed border-jet-ink px-1.5 font-display text-2xs font-semibold uppercase tracking-[0.08em] text-jet-ink">
+        Triage failed
+      </span>
+    );
   }
   return (
-    <span className="mt-1 flex flex-wrap gap-1 text-xs">
-      <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-medium capitalize text-indigo-800">
-        {triage.category.replace("_", " ")}
-      </span>
-      <span className={`rounded-full px-2 py-0.5 font-medium capitalize ${URGENCY_BADGE_STYLES[triage.urgency]}`}>
-        {triage.urgency} urgency
-      </span>
+    <span className="inline-flex items-center gap-2">
+      <UrgencyTab urgency={triage.urgency} />
+      <CategoryLabel category={triage.category} />
     </span>
   );
 }
 
-/** "5m ago", "3h ago", "4d ago", then a date. */
+/** "5m", "3h", "4d", then a date. Short form for dense lists. */
 export function timeAgo(date: Date, now = new Date()): string {
   const s = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 30 * 86400) return `${Math.floor(s / 86400)}d ago`;
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  if (s < 30 * 86400) return `${Math.floor(s / 86400)}d`;
   return date.toISOString().slice(0, 10);
+}
+
+/** "31 Oct 14:05 UTC": an unambiguous stamp time (rendered on the server, so always UTC). */
+export function stampTime(date: Date): string {
+  const d = date.toLocaleString("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" });
+  const t = date.toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
+  return `${d} ${t} UTC`;
+}
+
+export function Age({ date }: { date: Date }) {
+  return (
+    <time dateTime={date.toISOString()} title={stampTime(date)} className="num text-xs" suppressHydrationWarning>
+      {timeAgo(date)}
+    </time>
+  );
 }
