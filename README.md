@@ -165,11 +165,11 @@ Migrations and the user seed run in the `migrate` service before the app starts;
 ### CI/CD (GitHub Actions)
 
 - `.github/workflows/ci.yml` runs on every push and pull request: `npm ci`, typecheck, tests against a `postgres:17-alpine` service container, and a `docker build` of the `runner` target (not pushed). There is no lint script yet; the lint step turns on once an `eslint.config.*` exists. CI needs no secrets.
-- `.github/workflows/deploy.yml` runs when CI succeeds on a push to `integration/sift` (the deploy branch): it pushes the image to GHCR as `ghcr.io/hamzawaqar82/sift:<commit sha>` and `:latest`, then SSHes to the server, runs `git pull && docker compose -f compose.prod.yaml up -d --build`, and fails unless `https://$PUBLIC_HOSTNAME/api/health` returns 200. CI never reads or writes the server's `.env`.
+- `.github/workflows/deploy.yml` runs when CI succeeds on a push to `main` (the deploy branch): it pushes the image to GHCR as `ghcr.io/hamzawaqar82/sift:<commit sha>` and `:latest`, then SSHes to the server, runs `git pull && docker compose -f compose.prod.yaml up -d --build`, and fails unless `https://$PUBLIC_HOSTNAME/api/health` returns 200. CI never reads or writes the server's `.env`.
 - Set these in a GitHub environment named `production` (Settings -> Environments):
   - Secrets: `DEPLOY_SSH_KEY` (private key of a dedicated deploy key pair; its public key in the server user's `~/.ssh/authorized_keys`), `DEPLOY_HOST` (Elastic IP), optional `DEPLOY_KNOWN_HOSTS` (output of `ssh-keyscan <host>`; without it the host key is trusted on first use).
   - Variables: `PUBLIC_HOSTNAME` (e.g. `sift-43-204-61-13.sslip.io`), optional `DEPLOY_USER` (default `ubuntu`), optional `DEPLOY_PATH` (repo checkout on the server, default `sift`).
-- No auto-rollback: if the health check fails the job goes red and the site keeps whatever state Compose left. Roll back by redeploying an earlier commit (revert on `integration/sift` and push, or on the server `git checkout <sha> && docker compose -f compose.prod.yaml up -d --build`).
+- No auto-rollback: if the health check fails the job goes red and the site keeps whatever state Compose left. Roll back by redeploying an earlier commit (revert on `main` and push, or on the server `git checkout <sha> && docker compose -f compose.prod.yaml up -d --build`).
 - Next step: the server still builds images itself; switch `compose.prod.yaml` to `image: ghcr.io/hamzawaqar82/sift:<sha>` and `docker compose pull` so the tested image is the one that runs. In production, SSM Run Command with GitHub OIDC replaces SSH (see below).
 
 ## Production path

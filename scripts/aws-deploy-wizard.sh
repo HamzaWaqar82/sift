@@ -206,7 +206,7 @@ LOCAL_APP_ENV=".env"
 REGION="${REGION:-ap-south-1}"
 CONSOLE="https://${REGION}.console.aws.amazon.com/ec2/home?region=${REGION}"
 REPO_URL="https://github.com/HamzaWaqar82/sift.git"
-REPO_BRANCH="integration/sift"
+REPO_BRANCH="main"
 REMOTE_DIR="sift"
 
 _ssh() {

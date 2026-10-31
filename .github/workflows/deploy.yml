@@ -1,11 +1,11 @@
 name: Deploy
 
-# Runs after CI succeeds for a push to the deploy branch (integration/sift).
+# Runs after CI succeeds for a push to the deploy branch (main).
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [integration/sift]
+    branches: [main]
 
 permissions:
   contents: read
@@ -60,7 +60,7 @@ jobs:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER || 'ubuntu' }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'sift' }}
-      DEPLOY_BRANCH: integration/sift
+      DEPLOY_BRANCH: main
       EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
       PUBLIC_HOSTNAME: ${{ vars.PUBLIC_HOSTNAME }}
     steps:
