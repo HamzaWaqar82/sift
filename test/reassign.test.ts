@@ -131,6 +131,7 @@ describe("reassign", () => {
     const ticket = await createTicket();
     await assign(ticket.id, { assigneeId: await userId("ben@sift.local") }, admin);
 
+    await sql`insert into replies (ticket_id, final_body, sent_by, edited, idempotency_key) values (${ticket.id}, 'Done', ${await userId("ben@sift.local")}, true, ${`k-${ticket.id}-reassign-test`})`;
     const { POST } = await import("@/app/api/tickets/[id]/close/route");
     const res = await POST(
       new Request(`http://localhost/api/tickets/${ticket.id}/close`, { method: "POST", headers: { cookie: agent } }),

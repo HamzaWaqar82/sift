@@ -121,10 +121,17 @@ describe("sending a reply", () => {
     const id = await newTicket();
     const draftTriageId = await addTriage(id, "Sorry about the export. Please retry.");
 
-    const res = await sendReply(id, {
+    const forged = await sendReply(id, {
       body: "Sorry about the export. We fixed it.",
       aiDraft: "Sorry about the export. We fixed it.",
       edited: false,
+      idempotencyKey: newKey(),
+      draftTriageId,
+    });
+    expect(forged.status).toBe(400); // unknown keys are rejected outright
+
+    const res = await sendReply(id, {
+      body: "Sorry about the export. We fixed it.",
       idempotencyKey: newKey(),
       draftTriageId,
     });

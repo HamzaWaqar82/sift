@@ -15,7 +15,9 @@ export function CloseTicketButton({ ticketId }: { ticketId: number }) {
     if (res?.ok) {
       router.refresh();
     } else {
-      setError("Could not close the ticket");
+      // e.g. 409 reply_required: an agent must send a reply before closing.
+      const body = await res?.json().catch(() => null);
+      setError(typeof body?.error === "string" ? body.error : "Could not close the ticket");
     }
     setPending(false);
   }

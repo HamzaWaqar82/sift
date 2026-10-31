@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { InvalidCursorError, listTickets, type TicketListItem } from "@/lib/tickets";
-import { listQuerySchema, TICKET_STATUSES } from "@/lib/tickets/schema";
+import { parseListQuery } from "@/lib/tickets/query";
+import { TICKET_STATUSES } from "@/lib/tickets/schema";
 import { SourceLabel, StatusBadge, timeAgo, TriageMarker } from "./_components/ticket-labels";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -10,15 +11,18 @@ const FILTERS = [{ value: undefined, label: "All" }, ...TICKET_STATUSES.map((s) 
 /** Ticket list. Filter and cursor live in the URL; filter links drop the cursor (back = browser history). */
 export default async function TicketListPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const parsed = listQuerySchema.safeParse({
-    status: typeof sp.status === "string" && sp.status ? sp.status : undefined,
-    cursor: typeof sp.cursor === "string" && sp.cursor ? sp.cursor : undefined,
-  });
-  const query = parsed.success ? parsed.data : {};
+  const params = new URLSearchParams();
+  for (const key of ["status", "cursor"]) {
+    const v = sp[key];
+    if (typeof v === "string" && v) params.set(key, v);
+  }
+  // The page filters by one status at most; the API accepts more (see README).
+  const parsed = parseListQuery(params, 0);
+  const query = parsed.ok ? { status: parsed.data.status?.[0], cursor: parsed.data.cursor } : {};
 
   let page: { tickets: TicketListItem[]; nextCursor: string | null } | null = null;
   try {
-    page = parsed.success ? await listTickets(query) : null;
+    page = parsed.ok ? await listTickets({ status: query.status ? [query.status] : undefined, cursor: query.cursor }) : null;
   } catch (err) {
     if (!(err instanceof InvalidCursorError)) throw err;
   }

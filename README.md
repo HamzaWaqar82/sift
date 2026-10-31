@@ -13,7 +13,7 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Every page and API requires sign-in except `/api/health`, the inbound-email webhook and the sign-in endpoints (pages redirect to `/sign-in`, APIs return 401). Route handlers enforce roles on the server with `requireUser` / `requireAdmin` (403 for the wrong role).
 - Failed sign-ins are limited per client address in memory: after 5 failures in 15 minutes that address gets 429 until the window ends.
 - Ticket list (`/`, `GET /api/tickets`): newest first, 20 per page, filter by status (open, replied, closed). The filter and an opaque cursor live in the URL (`/?status=open&cursor=...`); changing the filter restarts from page one; going back uses browser history. Keyset paging on `(created_at, id)` means tickets arriving between pages never cause a duplicate or a skip. Each row shows subject, customer, status, assignee, source and age.
-- Ticket detail (`/tickets/:id`, `GET /api/tickets/:id`) with the full customer message, status and assignee. Any agent can close a ticket (`POST /api/tickets/:id/close`).
+- Ticket detail (`/tickets/:id`, `GET /api/tickets/:id`) with the full customer message, status and assignee. Close rule: an agent can close a ticket only after a reply has been sent on it (otherwise 409 `reply_required`); an admin can close any ticket. Anyone can reopen a closed ticket (`POST /api/tickets/:id/reopen`). See "API" below.
 - Admin reassign: on the ticket detail page an admin sees a "Reassign to" picker (any user, or Unassigned); agents do not see it. `POST /api/tickets/:id/assign` with `{"assigneeId": <user id> | null}` returns 200 `{ticket}` (with `assignee`) for an admin; 403 for an agent (nothing changes), 401 when signed out, 400 for an unknown user or bad body, 404 for an unknown ticket. New tickets start unassigned; the assignee never restricts who may work a ticket.
 - New-ticket form (`/tickets/new`, `POST /api/tickets`) for phone calls and chats: customer email, optional name, subject, message; source `form`; invalid input returns per-field errors.
 - Sample data: `samples/emails.json` holds 14 realistic customer emails (billing, technical, account, feature requests, an angry/urgent one, a vague one, a prompt-injection attempt, one with a phone number and personal email). The seed step creates them as tickets, keyed on message id so re-running never duplicates. Two more in `samples/live/` are deliberately not seeded, for posting live through the webhook in the demo.
@@ -35,7 +35,7 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Real email delivery of replies (SES or any provider); replies are recorded in the app only.
 - Threading follow-up emails into existing tickets; every inbound email creates a new ticket.
 - Vendor-specific inbound-email formats (SES, SendGrid, Mailgun, Postmark parse webhooks, raw MIME, attachments): the webhook accepts only this project's own JSON shape, the same one as `samples/`. A real provider would need a small adapter in front.
-- Claiming tickets and the Mine/Unassigned filter.
+- Claiming tickets. (The list API filters by assignee `me`/`unassigned`; the list page does not expose it yet.)
 - Managed database (RDS); Postgres runs in a container on the same host.
 - Auto-rollback of deploys.
 - Password reset and sign-up: accounts are seeded only; changing a password means editing the environment file and re-running the seed.
@@ -55,6 +55,61 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 ## Free-tier data risk
 
 On a **free-tier Gemini key, Google may use the prompts (ticket text) to improve its products**. Redaction of email addresses and phone numbers reduces what is shared but does not remove it: names, account details and free text still go out. Production should use a paid (billing-enabled) key, whose prompts are not used that way, and customers should be told an AI provider processes their messages.
+
+## API
+
+All endpoints are JSON and need a session cookie, except `/api/health`, `/api/webhook` and `/api/auth/sign-in`. Every error has one shape: `{"error": string, "code"?: string, "fields"?: {field: message}}`. Common codes: `unauthorized` (401), `forbidden` (403), `not_found` (404), `invalid_json` (400), `validation_failed` (400, with `fields`), `invalid_cursor` (400), `payload_too_large` (413), `internal_error` (500, generic; details go only to the server log).
+
+### Ticket list: `GET /api/tickets`
+
+| Param | Values | Notes |
+|---|---|---|
+| `q` | text | Case-insensitive substring match on subject, body, customer name and customer email. `%`, `_` and `\` match literally. Trimmed, capped at 100 characters; blank means no search. |
+| `status` | `open`, `replied`, `closed`, or a comma list (`open,replied`) | |
+| `assignee` | `me`, `unassigned`, or a user id | |
+| `category` | `billing`, `technical`, `account`, `feature_request`, `other` (comma list) | Taken from the ticket's current (latest valid) triage. Untriaged tickets never match. |
+| `urgency` | `low`, `medium`, `high` (comma list) | Same as `category`. |
+| `source` | `webhook`, `form` | |
+| `sort` | `newest` (default), `oldest`, `updated` | `created_at desc` / `created_at asc` / `updated_at desc`, with id as the tiebreak. |
+| `limit` | 1 to 100, default 20 | |
+| `cursor` | opaque | The previous page's `nextCursor`. Only valid with the same `sort`; a bad cursor gives 400 `invalid_cursor`. |
+
+Response: `200 {"tickets": TicketListItem[], "nextCursor": string | null}`, where `TicketListItem = {id, customerEmail, customerName, subject, source, status, createdAt, updatedAt, assignee: {id, name, email} | null, triage: {ok: true, category, urgency} | {ok: false} | null}`. Paging is keyset-based on (sort key, id), so new tickets never cause a duplicate or a skip. With `sort=updated`, a ticket that changes during paging can move, but paging never errors. Empty parameters are ignored. Invalid values give 400 `validation_failed`, with `fields` keyed by parameter name.
+
+Search uses plain `ILIKE` (a sequential scan). That is fine at this volume (hundreds to low thousands of tickets). Past that, add a `pg_trgm` GIN index on the subject, body and customer columns.
+
+### Board: `GET /api/tickets/board`
+
+Takes the same `q`, `status`, `assignee`, `category`, `urgency`, `source` and `sort` as the list. `limit` is per column (1 to 50, default 10). Response:
+
+```json
+{ "columns": { "open":    { "count": 7, "tickets": [], "nextCursor": "..." },
+               "replied": { "count": 3, "tickets": [], "nextCursor": null },
+               "closed":  { "count": 1, "tickets": [], "nextCursor": null } } }
+```
+
+`tickets` holds `TicketListItem`s. `count` is the total number of matching tickets in that column, not just this page. `status` limits which columns are returned. To load more of one column, send `column=<status>&cursor=<that column's nextCursor>` with the same filters; only that column comes back. Sending `cursor` without `column` is a 400.
+
+### Counts: `GET /api/tickets/summary`
+
+Takes `q`, `assignee`, `category`, `urgency` and `source`; `status`, `sort`, `limit` and `cursor` are ignored. Response: `{"total": 11, "byStatus": {"open": 7, "replied": 3, "closed": 1}}`. Every status is always present, with zero when it has no tickets.
+
+### Ticket actions
+
+- `GET /api/tickets/:id` returns `{ticket}`. `POST /api/tickets` (the form) returns 201 `{ticket}`.
+- `POST /api/tickets/:id/close` (no body) returns 200 `{ticket}`. **Close rule:** an agent can close a ticket only if at least one reply has been sent on it. Otherwise it gets **409** `{"error": "Send a reply before closing this ticket. Only an admin can close a ticket without one.", "code": "reply_required"}`. An admin can close any ticket. Closing a ticket that is already closed returns 200 and changes nothing, for agents too.
+- `POST /api/tickets/:id/reopen` (no body), for any signed-in user, returns 200 `{ticket}` with status `open`, or **409** `not_closed` if the ticket is not closed. Replies are kept, so an agent can close it again straight away.
+- Replies, assign and triage work as described in "What was built".
+- `:id` must be a positive 32-bit integer. Anything else (letters, `0`, overflow, `1.5`) gives 404 `not_found`, never a 500.
+
+### Validation rules
+
+- One helper parses every JSON body (`parseBody` in `lib/http`). Invalid or empty JSON gives 400 `invalid_json`. Bodies over 256 KiB give 413 (the limit is 64 KiB for the webhook, 4 KiB for sign-in and 1 KiB for triage). Schemas are strict, so unknown keys give a 400.
+- All text is cleaned up before validation and storage (`lib/text.ts`). It is normalised to Unicode NFC and `\r\n`/`\r` become `\n`. NUL and other control characters are removed (C0 except tab and newline, DEL, C1), along with zero-width characters, bidi overrides and BOM. Single-line fields (subject, names, message id) also turn newlines and tabs into spaces. Values are then trimmed, and whitespace-only values are rejected.
+- Length limits: form subject 200, body 20,000, name 200. Webhook subject 500, body 50,000, name 200, message id 500. Reply 20,000. Email addresses are at most 254 characters, trimmed and lower-cased.
+- Text is never HTML-escaped or interpreted. It is stored and returned exactly as given (after the clean-up above), and the UI renders it only as React text. `dangerouslySetInnerHTML` is not used anywhere, and a test checks this. Drizzle parameterises all queries.
+- Every route handler is wrapped in `route()` (`lib/http`). Unexpected errors are logged on the server and answered with a generic 500.
+- Redirects never include a host. Sign-out (`303`) and the signed-out page redirect (`307`) send `Location: /sign-in`. The app binds `0.0.0.0:3000` behind Caddy, so `req.url` is not the public origin.
 
 ## Webhook (inbound email)
 
@@ -77,7 +132,7 @@ On a **free-tier Gemini key, Google may use the prompts (ticket text) to improve
 - Responses (JSON):
   - `201 {ticket, created: true}`: new ticket, source `webhook`. Every new message id creates a new ticket (no threading).
   - `200 {ticket, created: false}`: this message id was already received; the existing ticket is returned unchanged.
-  - `400 {error}`: body is not JSON; `400 {error, fields}`: payload invalid, `fields` maps each bad field (e.g. `from.email`, `message_id`) to a reason.
+  - `400 {error, code: "invalid_json"}`: body is not JSON; `400 {error, code: "validation_failed", fields}`: payload invalid (unknown keys are rejected), `fields` maps each bad field (e.g. `from.email`, `message_id`) to a reason.
   - `401 {error}`: secret header missing or wrong.
   - `413 {error}`: body over 64 KiB (checked on the declared length and while reading).
 

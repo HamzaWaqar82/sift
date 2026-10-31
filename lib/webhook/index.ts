@@ -3,6 +3,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { NewTicket } from "@/lib/tickets";
+import { emailField, lineField, optionalLineField, textField } from "@/lib/validation";
 
 export const WEBHOOK_SECRET_HEADER = "x-webhook-secret";
 
@@ -20,44 +21,21 @@ export function webhookSecretMatches(given: string | null, expected: string | un
 /** Largest accepted request body, in bytes. */
 export const WEBHOOK_MAX_BYTES = 64 * 1024;
 
-/**
- * Reads the body as text, or returns null once it exceeds `maxBytes`. A declared
- * Content-Length over the limit is refused without reading; otherwise the stream is
- * counted as it arrives and cancelled at the limit, so a missing or false length cannot
- * make the server buffer more than `maxBytes`.
- */
-export async function readBodyWithLimit(req: Request, maxBytes = WEBHOOK_MAX_BYTES): Promise<string | null> {
-  const declared = Number(req.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > maxBytes) return null;
-  if (!req.body) return "";
-
-  const reader = req.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel().catch(() => {});
-      return null;
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-
-export const inboundEmailSchema = z.object({
-  from: z.object({
-    email: z.string().trim().toLowerCase().pipe(z.email("from.email must be a valid email address")),
-    name: z.string().trim().max(200).optional().nullable(),
-  }),
-  subject: z.string().trim().min(1, "subject is required").max(500),
-  body: z.string().trim().min(1, "body is required").max(50_000),
-  /** Accepted (and checked) for compatibility, but not used: tickets are ordered by server receive time. */
-  received_at: z.iso.datetime({ offset: true, message: "received_at must be an ISO 8601 date-time" }).optional(),
-  message_id: z.string().trim().min(1, "message_id is required").max(500),
-});
+export const inboundEmailSchema = z
+  .object({
+    from: z
+      .object({
+        email: emailField("from.email must be a valid email address"),
+        name: optionalLineField("from.name", 200).nullable(),
+      })
+      .strict(),
+    subject: lineField("subject", 500),
+    body: textField("body", 50_000),
+    /** Accepted (and checked) for compatibility, but not used: tickets are ordered by server receive time. */
+    received_at: z.iso.datetime({ offset: true, message: "received_at must be an ISO 8601 date-time" }).optional(),
+    message_id: lineField("message_id", 500),
+  })
+  .strict();
 
 export type InboundEmail = z.infer<typeof inboundEmailSchema>;
 

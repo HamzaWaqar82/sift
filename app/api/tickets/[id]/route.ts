@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { route } from "@/lib/http";
 import { getTicket } from "@/lib/tickets";
 import { parseTicketId } from "@/lib/tickets/schema";
 import { ticketNotFound, type TicketRouteContext } from "@/lib/tickets/http";
@@ -7,7 +8,7 @@ import { ticketNotFound, type TicketRouteContext } from "@/lib/tickets/http";
 export const dynamic = "force-dynamic";
 
 /** One ticket with its assignee and latest triage. */
-export async function GET(req: Request, ctx: TicketRouteContext) {
+export const GET = route(async (req: Request, ctx: TicketRouteContext) => {
   const user = await requireUser(req);
   if (user instanceof Response) return user;
 
@@ -15,4 +16,4 @@ export async function GET(req: Request, ctx: TicketRouteContext) {
   const ticket = id === null ? null : await getTicket(id);
   if (!ticket) return ticketNotFound();
   return NextResponse.json({ ticket });
-}
+});

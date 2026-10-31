@@ -69,7 +69,7 @@ describe("sign-in", () => {
     const res = await signIn("nobody@sift.local", TEST_PASSWORDS.alice);
 
     expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: "Incorrect email or password" });
+    expect(await res.json()).toEqual({ error: "Incorrect email or password", code: "invalid_credentials" });
   });
 
   it("does not accept one role's password for another role's account", async () => {
@@ -122,7 +122,7 @@ describe("sign-out", () => {
     );
 
     expect(res.status).toBe(303);
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/sign-in");
+    expect(res.headers.get("location")).toBe("/sign-in");
     const cleared = cookieFrom(res);
     expect(cleared).toBe("sift_session=");
     expect(res.headers.get("set-cookie")).toMatch(/Max-Age=0/i);
@@ -214,7 +214,7 @@ describe("proxy (runs before every page and API route)", () => {
     const res = await throughProxy("/tickets?status=open");
 
     expect(res.status).toBe(307);
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/sign-in");
+    expect(res.headers.get("location")).toBe("/sign-in");
   });
 
   it("lets the health check, webhook and sign-in through without a session", async () => {

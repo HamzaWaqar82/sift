@@ -4,19 +4,32 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { replies, tickets, users, type UserRef } from "@/lib/db/schema";
 import { getTicket, getValidTriage } from "@/lib/tickets";
+import { cleanLine, cleanText } from "@/lib/text";
+import { idField } from "@/lib/validation";
 
-export const replyInputSchema = z.object({
-  body: z
-    .string()
-    .max(20_000, "Reply must be 20,000 characters or fewer")
-    .refine((s) => s.trim().length > 0, "Reply cannot be empty"),
-  idempotencyKey: z.string().trim().min(8).max(200),
-  /**
-   * The triage result whose draft the reply box started from (the `draftTriageId` the client
-   * was given), or null when no AI draft was shown. Omitted means null.
-   */
-  draftTriageId: z.number().int().positive().nullable().default(null),
-});
+export const replyInputSchema = z
+  .object({
+    /** Sanitised but not trimmed, so an unchanged AI draft still compares equal. */
+    body: z
+      .string()
+      .transform(cleanText)
+      .pipe(
+        z
+          .string()
+          .max(20_000, "Reply must be 20,000 characters or fewer")
+          .refine((s) => s.trim().length > 0, "Reply cannot be empty"),
+      ),
+    idempotencyKey: z
+      .string()
+      .transform(cleanLine)
+      .pipe(z.string().trim().min(8, "idempotencyKey must be at least 8 characters").max(200, "idempotencyKey is too long")),
+    /**
+     * The triage result whose draft the reply box started from (the `draftTriageId` the client
+     * was given), or null when no AI draft was shown. Omitted means null.
+     */
+    draftTriageId: idField.nullable().default(null),
+  })
+  .strict();
 
 export type ReplyInput = z.infer<typeof replyInputSchema>;
 
@@ -63,7 +76,7 @@ export async function sendReply(
     if (!shown) throw new UnknownDraftError();
     aiDraft = shown.draft;
   }
-  const edited = aiDraft === null || input.body !== aiDraft;
+  const edited = aiDraft === null || input.body !== cleanText(aiDraft);
 
   const created = await getDb().transaction(async (tx) => {
     const [row] = await tx

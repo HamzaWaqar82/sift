@@ -204,6 +204,7 @@ describe("ticket detail and close", () => {
     const [id] = await insertTickets(1);
     await sql`update tickets set assignee_id = (select id from users where email = 'ben@sift.local') where id = ${id}`;
 
+    await sql`insert into replies (ticket_id, final_body, sent_by, edited, idempotency_key) values (${id}, 'Done', (select id from users where email = 'ben@sift.local'), true, ${`k-${id}-close-test`})`;
     const res = await closeTicket(id);
 
     expect(res.status).toBe(200);

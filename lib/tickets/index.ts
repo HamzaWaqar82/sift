@@ -1,10 +1,11 @@
 // Shared ticket queries and commands. Route handlers (form, webhook, reply, reassign) and
 // pages use these instead of writing their own SQL.
-import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import {
   helpArticles,
+  replies,
   tickets,
   triageResults,
   users,
@@ -16,7 +17,10 @@ import {
   type UserRef,
 } from "@/lib/db/schema";
 
-export const PAGE_SIZE = 20;
+import { isValidTriage } from "./triage-rule";
+
+export { isValidTriage };
+export { PAGE_SIZE, InvalidCursorError, listTickets, boardTickets, ticketSummary } from "./list";
 
 export type NewTicket = {
   customerEmail: string;
@@ -42,7 +46,7 @@ export type TriageSummary =
 
 export type TicketListItem = Pick<
   Ticket,
-  "id" | "customerEmail" | "customerName" | "subject" | "source" | "status" | "createdAt"
+  "id" | "customerEmail" | "customerName" | "subject" | "source" | "status" | "createdAt" | "updatedAt"
 > & { assignee: Assignee; triage: TriageSummary };
 
 /** A valid triage result with the help article it cites (null: the draft is ungrounded). */
@@ -68,15 +72,6 @@ export type TicketDetail = Ticket & {
 };
 
 export type Grounding = { article: HelpArticle | null } | null;
-
-/**
- * THE validity rule for stored triage results: a result is valid when it has no error
- * (the table's check constraint then guarantees category, urgency and draft are set).
- * Every "current triage" query uses this predicate.
- */
-export function isValidTriage(): SQL {
-  return isNull(triageResults.error);
-}
 
 function selectValidTriage() {
   return getDb()
@@ -184,14 +179,42 @@ export async function getTicket(id: number): Promise<TicketDetail | null> {
   };
 }
 
-/** Sets a ticket's status. Returns the updated ticket, or null if it does not exist. */
-export async function setTicketStatus(id: number, status: TicketStatus): Promise<Ticket | null> {
-  const [row] = await getDb()
+export type CloseResult =
+  | { ok: true; ticket: Ticket }
+  | { ok: false; reason: "not-found" | "reply_required" };
+
+/**
+ * Closes a ticket. THE close rule: unless `anyTicket` (admins), the ticket must have at least one
+ * sent reply. Closing an already-closed ticket succeeds and changes nothing.
+ */
+export async function closeTicket(id: number, opts: { anyTicket: boolean }): Promise<CloseResult> {
+  const db = getDb();
+  const hasReply = sql`exists (select 1 from ${replies} where ${replies.ticketId} = ${tickets.id})`;
+  const [closed] = await db
     .update(tickets)
-    .set({ status, updatedAt: sql`now()` })
-    .where(eq(tickets.id, id))
+    .set({ status: "closed", updatedAt: sql`now()` })
+    .where(and(eq(tickets.id, id), ne(tickets.status, "closed"), opts.anyTicket ? undefined : hasReply))
     .returning();
-  return row ?? null;
+  if (closed) return { ok: true, ticket: closed };
+
+  const [existing] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1);
+  if (!existing) return { ok: false, reason: "not-found" };
+  return existing.status === "closed" ? { ok: true, ticket: existing } : { ok: false, reason: "reply_required" };
+}
+
+export type ReopenResult = { ok: true; ticket: Ticket } | { ok: false; reason: "not-found" | "not_closed" };
+
+/** Reopens a closed ticket (closed -> open). Any other status is refused with "not_closed". */
+export async function reopenTicket(id: number): Promise<ReopenResult> {
+  const db = getDb();
+  const [reopened] = await db
+    .update(tickets)
+    .set({ status: "open", updatedAt: sql`now()` })
+    .where(and(eq(tickets.id, id), eq(tickets.status, "closed")))
+    .returning();
+  if (reopened) return { ok: true, ticket: reopened };
+  const [existing] = await db.select({ id: tickets.id }).from(tickets).where(eq(tickets.id, id)).limit(1);
+  return { ok: false, reason: existing ? "not_closed" : "not-found" };
 }
 
 /**
@@ -219,106 +242,4 @@ export async function assignTicket(
 /** Every staff user, for the admin's assignee picker. */
 export async function listAssignableUsers(): Promise<UserRef[]> {
   return getDb().select({ id: users.id, name: users.name, email: users.email }).from(users).orderBy(users.name);
-}
-
-export class InvalidCursorError extends Error {
-  constructor() {
-    super("Invalid cursor");
-  }
-}
-
-/** Opaque keyset cursor: the (created_at, id) of the last row on the page. */
-function encodeCursor(createdAt: Date, id: number): string {
-  return Buffer.from(JSON.stringify([createdAt.toISOString(), id])).toString("base64url");
-}
-
-function decodeCursor(cursor: string): { createdAt: Date; id: number } {
-  try {
-    const [iso, id] = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
-    const createdAt = new Date(iso);
-    if (typeof iso !== "string" || Number.isNaN(createdAt.getTime()) || !Number.isInteger(id)) {
-      throw new Error();
-    }
-    return { createdAt, id };
-  } catch {
-    throw new InvalidCursorError();
-  }
-}
-
-/**
- * One page of tickets, newest first (created_at desc, id desc), optionally filtered by status.
- * Keyset paging: rows inserted after the first page was read never shift later pages.
- * Throws InvalidCursorError for a cursor this function did not produce.
- */
-export async function listTickets(opts: {
-  status?: TicketStatus;
-  cursor?: string;
-  limit?: number;
-} = {}): Promise<{ tickets: TicketListItem[]; nextCursor: string | null }> {
-  const limit = opts.limit ?? PAGE_SIZE;
-  const after = opts.cursor ? decodeCursor(opts.cursor) : null;
-
-  // Per ticket: the current (latest valid) triage, else the latest failed attempt.
-  const latestTriage = getDb()
-    .selectDistinctOn([triageResults.ticketId], {
-      ticketId: triageResults.ticketId,
-      category: triageResults.category,
-      urgency: triageResults.urgency,
-      error: triageResults.error,
-    })
-    .from(triageResults)
-    .orderBy(triageResults.ticketId, desc(isValidTriage()), desc(triageResults.createdAt), desc(triageResults.id))
-    .as("latest_triage");
-
-  const rows = await getDb()
-    .select({
-      id: tickets.id,
-      customerEmail: tickets.customerEmail,
-      customerName: tickets.customerName,
-      subject: tickets.subject,
-      source: tickets.source,
-      status: tickets.status,
-      createdAt: tickets.createdAt,
-      assigneeId: assigneeUser.id,
-      assigneeName: assigneeUser.name,
-      assigneeEmail: assigneeUser.email,
-      triageTicketId: latestTriage.ticketId,
-      category: latestTriage.category,
-      urgency: latestTriage.urgency,
-    })
-    .from(tickets)
-    .leftJoin(assigneeUser, eq(assigneeUser.id, tickets.assigneeId))
-    .leftJoin(latestTriage, eq(latestTriage.ticketId, tickets.id))
-    .where(
-      and(
-        opts.status ? eq(tickets.status, opts.status) : undefined,
-        after
-          ? sql`(${tickets.createdAt}, ${tickets.id}) < (${after.createdAt.toISOString()}::timestamptz, ${after.id})`
-          : undefined,
-      ),
-    )
-    .orderBy(desc(tickets.createdAt), desc(tickets.id))
-    .limit(limit + 1);
-
-  const page = rows.slice(0, limit).map(
-    (r): TicketListItem => ({
-      id: r.id,
-      customerEmail: r.customerEmail,
-      customerName: r.customerName,
-      subject: r.subject,
-      source: r.source,
-      status: r.status,
-      createdAt: r.createdAt,
-      assignee: r.assigneeId ? { id: r.assigneeId, name: r.assigneeName!, email: r.assigneeEmail! } : null,
-      triage:
-        r.triageTicketId === null
-          ? null
-          : r.category && r.urgency
-            ? { ok: true, category: r.category, urgency: r.urgency }
-            : { ok: false },
-    }),
-  );
-  const last = page.at(-1);
-  const nextCursor = rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null;
-  return { tickets: page, nextCursor };
 }

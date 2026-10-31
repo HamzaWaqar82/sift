@@ -35,7 +35,7 @@ export async function getCurrentUser(req: Request): Promise<SessionUser | null> 
 /** The signed-in user, or a 401 JSON Response to return as-is. */
 export async function requireUser(req: Request): Promise<SessionUser | Response> {
   const user = await getCurrentUser(req);
-  return user ?? NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  return user ?? NextResponse.json({ error: "Sign in required", code: "unauthorized" }, { status: 401 });
 }
 
 /** Whether this user may do admin-only things (reassign, regenerate triage). The one role check. */
@@ -48,7 +48,7 @@ export async function requireAdmin(req: Request): Promise<SessionUser | Response
   const user = await requireUser(req);
   if (user instanceof Response) return user;
   if (!isAdmin(user)) {
-    return NextResponse.json({ error: "You do not have permission to do that" }, { status: 403 });
+    return NextResponse.json({ error: "You do not have permission to do that", code: "forbidden" }, { status: 403 });
   }
   return user;
 }
