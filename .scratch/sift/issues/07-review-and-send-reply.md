@@ -6,14 +6,14 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The reply box starts with the AI draft when one exists, otherwise empty; it is editable
-- [ ] Sending requires an explicit action and rejects an empty reply
-- [ ] A sent reply stores: ticket, AI draft (if any), final text, sending user, send time, and an edited flag
-- [ ] Sending sets the ticket to replied; the thread shows the reply with sender, time and "edited" or "unedited"
-- [ ] Double click or double submit produces only one reply
-- [ ] Sending works for a ticket with no triage, a failed triage, or when the daily cap is reached
-- [ ] Any agent can reply to any ticket
-- [ ] API-level tests cover: send records sender and time, edited flag, status change, empty rejected, double submit, unauthenticated
-- [ ] README: state clearly that replies are recorded in the app only and no email is delivered (SES left out)
+- [x] The reply box starts with the AI draft when one exists, otherwise empty; it is editable
+- [x] Sending requires an explicit action and rejects an empty reply
+- [x] A sent reply stores: ticket, AI draft (if any), final text, sending user, send time, and an edited flag
+- [x] Sending sets the ticket to replied; the thread shows the reply with sender, time and "edited" or "unedited"
+- [x] Double click or double submit produces only one reply
+- [x] Sending works for a ticket with no triage, a failed triage, or when the daily cap is reached
+- [x] Any agent can reply to any ticket
+- [x] API-level tests cover: send records sender and time, edited flag, status change, empty rejected, double submit, unauthenticated
+- [x] README: state clearly that replies are recorded in the app only and no email is delivered (SES left out)
