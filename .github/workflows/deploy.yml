@@ -1,0 +1,112 @@
+name: Deploy
+
+# Runs after CI succeeds for a push to the deploy branch (integration/sift).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [integration/sift]
+
+permissions:
+  contents: read
+
+# Never run two deploys at once; queue instead of cancelling a deploy mid-flight.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish image to GHCR
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lowercase image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ github.event.workflow_run.head_sha }}
+            ${{ steps.image.outputs.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy over SSH
+    needs: publish
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.PUBLIC_HOSTNAME }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'ubuntu' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'sift' }}
+      DEPLOY_BRANCH: integration/sift
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      PUBLIC_HOSTNAME: ${{ vars.PUBLIC_HOSTNAME }}
+    steps:
+      - name: Check configuration
+        run: |
+          for v in DEPLOY_HOST PUBLIC_HOSTNAME; do
+            if [ -z "${!v}" ]; then echo "::error::$v is not set in the production environment"; exit 1; fi
+          done
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::DEPLOY_KNOWN_HOSTS not set; trusting the host key on first use"
+            ssh-keyscan -T 10 "$DEPLOY_HOST" > ~/.ssh/known_hosts
+          fi
+      # The server keeps its hand-made .env; CI never reads or writes it.
+      # compose.prod.yaml still builds images on the server (see README "CI/CD").
+      - name: Pull and restart the stack
+        run: |
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$DEPLOY_PATH" "$DEPLOY_BRANCH" "$EXPECTED_SHA" <<'REMOTE'
+          set -euo pipefail
+          cd "$1"
+          git fetch -q origin
+          git checkout -q "$2"
+          git pull -q --ff-only origin "$2"
+          echo "Server HEAD: $(git rev-parse HEAD) (CI commit: $3)"
+          docker compose -f compose.prod.yaml up -d --build
+          REMOTE
+      - name: Health check
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$PUBLIC_HOSTNAME/api/health" || true)
+            echo "attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::https://$PUBLIC_HOSTNAME/api/health did not return 200. There is no auto-rollback: redeploy an earlier commit."
+          exit 1
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

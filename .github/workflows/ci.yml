@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: sift
+          POSTGRES_PASSWORD: sift
+          POSTGRES_DB: sift
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sift"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      # The test setup creates and migrates this database itself.
+      TEST_DATABASE_URL: postgres://sift:sift@localhost:5432/sift_test
+      # Tests mock Gemini and pass seed passwords explicitly; no real secrets or SEED_* vars are needed.
+      SESSION_SECRET: ci-session-secret-at-least-32-characters-long
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # No lint script yet (Next 16 dropped `next lint`); this step activates once an ESLint config exists.
+      - name: Lint
+        if: ${{ hashFiles('eslint.config.*') != '' }}
+        run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  image:
+    name: Docker build (runner target)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: false
+          tags: sift:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
