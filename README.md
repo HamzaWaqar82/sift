@@ -68,7 +68,9 @@ TEST_DATABASE_URL=postgres://sift:sift@localhost:55432/sift_test_01 npm test
 
 Production is one EC2 instance with an Elastic IP running `compose.prod.yaml`: Caddy (ports 80/443, automatic Let's Encrypt certificate) -> app -> Postgres. The hostname uses sslip.io wildcard DNS, so no domain is needed: Elastic IP `203.0.113.10` -> `sift-203-0-113-10.sslip.io`.
 
-One-time server setup:
+Live: https://sift-43-204-61-13.sslip.io (EC2 t3.small in ap-south-1, Mumbai).
+
+One-time server setup: run `./scripts/aws-deploy-wizard.sh` from the repo root. It walks you through the AWS console step by step (key pair, security group, instance, Elastic IP), then writes the production `.env` on the server, starts the stack, checks HTTPS and runs a reboot test. Local deploy values (host, key path, webhook secret, seed passwords) are saved to `.env.deploy`, which is gitignored. The manual equivalent:
 
 1. Launch an EC2 instance (e.g. Ubuntu, t3.small), attach an Elastic IP, and open inbound ports 22, 80 and 443 in its security group.
 2. Install Docker Engine and the Compose plugin; run `sudo systemctl enable --now docker` so containers come back after a reboot (all long-running services use `restart: unless-stopped`).
