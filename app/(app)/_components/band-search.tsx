@@ -113,7 +113,7 @@ export function BandSearch() {
       ) : (
         <kbd
           aria-hidden="true"
-          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-sm border border-[#3a4a75] px-1.5 font-mono text-2xs text-band-ink"
+          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-sm border border-[#3a4a75] px-1.5 font-mono text-2xs text-band-ink [@media(pointer:coarse)]:hidden"
         >
           /
         </kbd>

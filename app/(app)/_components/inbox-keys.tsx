@@ -12,7 +12,7 @@ export function InboxKeys() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-ticket-row]"));
+      const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-ticket-row]")).filter((r) => r.offsetParent !== null);
       if (rows.length === 0) return;
       const onRow = t ? rows.indexOf(t) : -1;
       let dir = 0;

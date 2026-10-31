@@ -102,6 +102,12 @@ Takes `q`, `assignee`, `category`, `urgency` and `source`; `status`, `sort`, `li
 - Replies, assign and triage work as described in "What was built".
 - `:id` must be a positive 32-bit integer. Anything else (letters, `0`, overflow, `1.5`) gives 404 `not_found`, never a 500.
 
+### Saved views (per user)
+- `GET /api/views` returns `{views}` for the signed-in user only.
+- `POST /api/views` `{name, params}` returns 201 `{view}`. `name`: 1 to 40 characters. `params`: any of `view` (inbox, table, board), `q`, `status`, `assignee`, `category`, `urgency`, `source`, `sort`, `limit` (20, 50, 100), checked like `GET /api/tickets`; defaults are dropped. **409** `name_taken` (same name, any case) or `view_limit` (20 per user).
+- `PATCH /api/views/:id` `{name}` renames; `DELETE /api/views/:id` deletes. Another user's view gives 404 `not_found`, the same as a missing one.
+- The UI pins five built-in views (All tickets, Needs reply, My open, Unassigned, High urgency) before the saved ones; the active view is `?sv=` in the URL.
+
 ### Validation rules
 
 - One helper parses every JSON body (`parseBody` in `lib/http`). Invalid or empty JSON gives 400 `invalid_json`. Bodies over 256 KiB give 413 (the limit is 64 KiB for the webhook, 4 KiB for sign-in and 1 KiB for triage). Schemas are strict, so unknown keys give a 400.

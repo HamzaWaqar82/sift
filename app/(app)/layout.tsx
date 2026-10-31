@@ -27,7 +27,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         Skip to content
       </a>
-      <header className="band z-30 bg-ink text-white md:sticky md:top-0 md:h-14">
+      <header className="band relative z-30 bg-ink text-white md:sticky md:top-0 md:h-14">
+        <div aria-hidden="true" className="speed-stripe pointer-events-none absolute right-0 top-0 h-1.5 w-[46%] md:w-[34%]">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
         <div className="flex flex-wrap items-end gap-x-6 gap-y-2 px-4 pt-2.5 lg:px-6">
           <Link href="/" className="order-1 mb-2.5 shrink-0 rounded-sm" aria-label="Sift, ticket inbox">
             <Wordmark tone="band" />

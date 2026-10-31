@@ -22,7 +22,18 @@ export type EditorDraft = { triageId: number; text: string };
  * The send carries the id of the triage result whose draft the box started from, so the server
  * records that draft and computes `edited` against it even if a newer draft arrived meanwhile.
  */
-export function ReplyEditor({ ticketId, draft, closed = false }: { ticketId: number; draft: EditorDraft | null; closed?: boolean }) {
+export function ReplyEditor({
+  ticketId,
+  draft,
+  closed = false,
+  compact = false,
+}: {
+  ticketId: number;
+  draft: EditorDraft | null;
+  closed?: boolean;
+  /** Inbox pane: a shorter box so the draft, article and Send fit the first viewport. */
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [text, setText] = useState(draft?.text ?? "");
   const [touched, setTouched] = useState(false);
@@ -102,6 +113,11 @@ export function ReplyEditor({ ticketId, draft, closed = false }: { ticketId: num
             {state === "edited" ? "Draft, edited" : "AI draft"}
           </span>
         )}
+        <p id={`reply-${ticketId}-hint`} className="mb-1 ml-2 min-w-0 self-center truncate text-xs text-ink-2">
+          {state === "unedited" && "Check it against the source article before sending."}
+          {state === "edited" && "Will be recorded as an edited AI draft."}
+          {state === "hand" && "Written by hand."}
+        </p>
       </div>
       <div className="coupon">
         <label htmlFor={`reply-${ticketId}`} className="sr-only">
@@ -116,28 +132,22 @@ export function ReplyEditor({ ticketId, draft, closed = false }: { ticketId: num
             setSent(false);
             if (error) setError(null);
           }}
-          rows={9}
+          rows={7}
           maxLength={MAX}
           placeholder={draft ? "Write a reply…" : "Write a reply, or run AI triage above for a draft to start from…"}
           aria-invalid={!!error || undefined}
           aria-describedby={`reply-${ticketId}-hint`}
-          className="block w-full resize-y rounded-t-[var(--radius-coupon)] border-0 bg-panel px-4 py-3 leading-relaxed text-ink focus:shadow-[inset_0_0_0_2px_var(--color-ink)] focus:outline-none"
+          className={`block w-full ${compact ? "max-h-[13rem] min-h-[8rem]" : "max-h-[24rem] min-h-[10rem]"} resize-y overflow-y-auto rounded-t-[var(--radius-coupon)] border-0 bg-panel px-4 pb-5 pt-3 leading-relaxed text-ink [field-sizing:content] focus:shadow-[inset_0_0_0_2px_var(--color-ink)] focus:outline-none`}
         />
+        {/* The textarea scrolls inside its own box (bottom padding), so text never runs under this footer. */}
         <div className="perf" style={{ ["--perf-bg" as string]: "var(--color-ground)" }} aria-hidden="true" />
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div id={`reply-${ticketId}-hint`} className="min-w-0 space-y-0.5 text-xs text-ink-2">
-            <p>
-              {state === "unedited" && "Starts from the AI draft. Read it against the source article before sending."}
-              {state === "edited" && "Edited from the AI draft. The thread will record it as edited."}
-              {state === "hand" && "Written by hand."}
-            </p>
-            <p className="text-ink-3">
-              {closed ? "Sending reopens this closed ticket as Replied. " : ""}Recorded in Sift only; no email is sent.
-              <span className="num ml-1.5">
-                {text.length.toLocaleString("en-US")}/{MAX.toLocaleString("en-US")}
-              </span>
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5">
+          <p className="min-w-0 text-xs text-ink-2">
+            {closed ? "Sending reopens this closed ticket. " : ""}Recorded in Sift; no email is sent.
+            <span className="num ml-1.5">
+              {text.length.toLocaleString("en-US")}/{MAX.toLocaleString("en-US")}
+            </span>
+          </p>
           <div className="flex items-center gap-2">
             {edited && !pending && (
               <button

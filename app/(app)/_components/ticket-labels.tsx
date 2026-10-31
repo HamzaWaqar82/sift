@@ -15,7 +15,7 @@ export function TicketNo({ id, className = "" }: { id: number; className?: strin
 /** Status as a small stamp: OPEN (navy), REPLIED (carbon), CLOSED (red). */
 export function StatusStamp({ status }: { status: TicketStatus }) {
   return (
-    <span className="stamp" data-state={status}>
+    <span className={`stamp ${status === "closed" ? "bg-jet-tint" : ""}`} data-state={status}>
       {LABELS.status[status]}
     </span>
   );
@@ -61,17 +61,13 @@ export function SourceLabel({ source, withIcon = false }: { source: TicketSource
 
 /** Category + urgency of the current triage; a "not triaged" / "triage failed" marker otherwise. */
 export function TriageMarker({ triage }: { triage: TriageSummary }) {
-  if (!triage) {
+  // Only triaged values get chips; the rest is a quiet hollow dot with a tooltip.
+  if (!triage || !triage.ok) {
+    const label = triage ? "Triage failed" : "Not triaged";
     return (
-      <span className="inline-flex h-5 items-center border border-dashed border-ink-3 px-1.5 font-display text-2xs font-semibold uppercase tracking-[0.08em] text-ink-3">
-        Not triaged
-      </span>
-    );
-  }
-  if (!triage.ok) {
-    return (
-      <span className="inline-flex h-5 items-center border border-dashed border-jet-ink px-1.5 font-display text-2xs font-semibold uppercase tracking-[0.08em] text-jet-ink">
-        Triage failed
+      <span className="inline-flex size-5 items-center justify-center" title={label}>
+        <span aria-hidden="true" className={`size-2 rounded-full border-[1.5px] ${triage ? "border-jet-ink" : "border-ink-3"}`} />
+        <span className="sr-only">{label}</span>
       </span>
     );
   }

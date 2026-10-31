@@ -15,6 +15,8 @@ import {
   serial,
   text,
   timestamp,
+  jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["agent", "admin"]);
@@ -132,7 +134,27 @@ export const aiUsage = pgTable("ai_usage", {
   calls: integer("calls").notNull().default(0),
 });
 
-export type UserRole = (typeof userRole.enumValues)[number];
+/**
+ * A user's saved ticket view: a name plus the list state it restores (view type, filters,
+ * sort, page size). Private to its owner; at most MAX_SAVED_VIEWS per user (lib/views).
+ */
+export const savedViews = pgTable(
+  "saved_views",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Validated list params, e.g. { view: "table", status: "open", sort: "oldest" }. */
+    params: jsonb("params").$type<Record<string, string>>().notNull(),
+    createdAt: tsMs("created_at").notNull().defaultNow(),
+    updatedAt: tsMs("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("saved_views_user_name_idx").on(t.userId, t.name)],
+);
+
+export type UserRole =(typeof userRole.enumValues)[number];
 export type TicketSource = (typeof ticketSource.enumValues)[number];
 export type TicketStatus = (typeof ticketStatus.enumValues)[number];
 export type TriageCategory = (typeof triageCategory.enumValues)[number];

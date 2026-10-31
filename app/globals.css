@@ -39,7 +39,7 @@
   /* Carrier navy ink and its navy-tinted neutrals. */
   --color-ink: #0d1b3d; /* 16.9:1 on white, 15.1:1 on ground */
   --color-ink-2: #34405e; /* secondary text: 10.3:1 on white, 9.2:1 on ground */
-  --color-ink-3: #565f7a; /* tertiary + placeholders: 6.3:1 on white, 5.7:1 on ground, 5.1:1 on navy-tint */
+  --color-ink-3: #4a5370; /* tertiary + placeholders: 7.6:1 on white, 6.8:1 on ground, 6.1:1 on navy-tint */
   --color-rule: #0d1b3d; /* hairline rules */
   --color-rule-soft: #c8ccd8; /* in-coupon row dividers (non-text) */
   --color-navy-tint: #e3e7f1; /* selected row / replied chip */
@@ -402,12 +402,16 @@
   .btn:active {
     transform: translateY(1px);
   }
+  /* Unavailable: dashed outline, readable label (ink-2 on panel-2 is 9.8:1). */
   .btn:disabled,
-  .btn[aria-disabled="true"] {
+  .btn[aria-disabled="true"],
+  .btn:disabled:hover,
+  .btn[aria-disabled="true"]:hover {
     cursor: not-allowed;
     background: var(--color-panel-2);
-    border-color: var(--color-rule-soft);
-    color: var(--color-ink-3);
+    border-color: var(--color-ink-3);
+    border-style: dashed;
+    color: var(--color-ink-2);
     transform: none;
   }
   .btn-sm {
@@ -543,6 +547,38 @@
     min-width: 13rem;
     max-height: min(24rem, 70vh);
     overflow: auto;
+  }
+  /* Narrow screens: popovers become a bottom sheet, so the chips and buttons above stay visible. */
+  @media (max-width: 40rem) {
+    .pop {
+      top: auto !important;
+      left: 0 !important;
+      right: 0;
+      bottom: 0;
+      width: 100% !important;
+      max-width: none;
+      max-height: 60vh;
+      border-radius: var(--radius-coupon) var(--radius-coupon) 0 0;
+      border-width: 1px 0 0;
+    }
+  }
+
+  /* The jet-age speed stripe on the navy band: three white dashes then a jet red bar. */
+  .speed-stripe {
+    display: flex;
+    gap: 6px;
+    transform: skewX(-35deg);
+    transform-origin: top right;
+  }
+  .speed-stripe > span {
+    display: block;
+    height: 100%;
+    background: #fff;
+    width: 14px;
+  }
+  .speed-stripe > span:last-child {
+    flex: 1;
+    background: var(--color-jet);
   }
 }
 

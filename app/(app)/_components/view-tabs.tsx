@@ -36,6 +36,7 @@ export function ViewTabs() {
           >
             <Icon className="size-4" strokeWidth={1.5} aria-hidden="true" />
             {label}
+            {isActive && <span aria-hidden="true" className="absolute inset-x-2.5 bottom-0 h-[3px] bg-jet" />}
           </Link>
         );
       })}

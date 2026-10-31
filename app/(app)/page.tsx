@@ -12,7 +12,9 @@ import { TicketTable } from "./_components/ticket-table";
 import { Board } from "./_components/board";
 import { toCard } from "./_lib/cards";
 import { Pager } from "./_components/pager";
-import { EmptyState, ExpiredPage, InvalidQuery } from "./_components/empty-state";
+import { EmptyState, ExpiredPage, InvalidQuery, NoTicketSelected } from "./_components/empty-state";
+import { ViewsBar } from "./_components/views-bar";
+import { listViews } from "@/lib/views";
 import { BoardSkeleton, DetailSkeleton, ListSkeleton, TableSkeleton } from "./_components/skeletons";
 import { TicketView } from "./tickets/[id]/ticket-view";
 
@@ -27,10 +29,12 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
   const view = viewOf(p);
 
   const summaryQuery = parseSummaryQuery(apiParams(p), user.id);
-  const [summary, users] = await Promise.all([
+  const [summary, users, saved] = await Promise.all([
     summaryQuery.ok ? ticketSummary(summaryQuery.data) : null,
     listAssignableUsers(),
+    listViews(user.id),
   ]);
+  const viewsBar = <ViewsBar params={p} saved={saved.map((v) => ({ id: v.id, name: v.name, params: v.params }))} />;
 
   const rail = <FilterRail params={p} counts={summary} users={users} meId={user.id} />;
   // Re-key on everything but the open ticket so a new filter/page shows skeletons, not stale rows.
@@ -39,7 +43,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
 
   if (!summary) {
     return (
-      <Frame view={view}>
+      <Frame view={view} bar={viewsBar}>
         {rail}
         <InvalidQuery fields={summaryQuery.ok ? {} : summaryQuery.fields} />
       </Frame>
@@ -48,7 +52,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
 
   if (view === "board") {
     return (
-      <Frame view={view}>
+      <Frame view={view} bar={viewsBar}>
         {rail}
         <Suspense key={key} fallback={<BoardSkeleton />}>
           <BoardResults p={p} userId={user.id} />
@@ -59,7 +63,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
 
   if (view === "table") {
     return (
-      <Frame view={view}>
+      <Frame view={view} bar={viewsBar}>
         {rail}
         <Suspense key={key} fallback={<TableSkeleton rows={Math.min(pageSizeOf(p), 12)} />}>
           <ListResults p={p} userId={user.id} view="table" total={matchTotal(p, summary)} />
@@ -71,10 +75,12 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
   // Inbox: list on the left, the open coupon on the right. Narrow screens show one at a time.
   const openId = p.ticket ? parseTicketId(p.ticket) : null;
   return (
+    <>
+    <div className={openId ? "hidden md:block" : ""}>{viewsBar}</div>
     <div className="grid flex-1 md:grid-cols-[minmax(22rem,28rem)_1fr] xl:grid-cols-[30rem_1fr]">
       <section
         aria-label="Ticket list"
-        className={`${openId ? "hidden md:flex" : "flex"} min-w-0 flex-col border-rule-soft md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] md:overflow-y-auto md:border-r`}
+        className={`${openId ? "hidden md:flex" : "flex"} min-w-0 flex-col border-rule-soft md:sticky md:top-[6.25rem] md:h-[calc(100vh-6.25rem)] md:overflow-y-auto md:border-r`}
       >
         <div className="px-3 pt-4 pb-2 lg:px-4">{rail}</div>
         <Suspense key={key} fallback={<ListSkeleton rows={8} />}>
@@ -102,14 +108,18 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
         )}
       </section>
     </div>
+    </>
   );
 }
 
-function Frame({ view, children }: { view: string; children: React.ReactNode }) {
+function Frame({ view, bar, children }: { view: string; bar: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-[110rem] space-y-4 px-3 py-4 lg:px-6" data-view={view}>
-      {children}
-    </div>
+    <>
+      {bar}
+      <div className="mx-auto w-full max-w-[110rem] space-y-4 px-3 py-4 lg:px-6" data-view={view}>
+        {children}
+      </div>
+    </>
   );
 }
 
@@ -175,18 +185,12 @@ async function ListResults({
 async function FirstTicket({ p, userId }: { p: Record<string, string>; userId: number }) {
   const result = await loadPage(p, userId);
   const first = result.kind === "ok" ? result.page.tickets[0] : undefined;
-  if (!first) {
-    return (
-      <div className="coupon-quiet grid min-h-64 place-items-center p-8 text-center text-sm text-ink-2">
-        Nothing to open. Pick a ticket from the list when one arrives.
-      </div>
-    );
-  }
+  if (!first) return <NoTicketSelected params={p} />;
   return <TicketView id={first.id} embedded />;
 }
 
 async function BoardResults({ p, userId }: { p: Record<string, string>; userId: number }) {
-  const parsed = parseBoardQuery(apiParams(p, { limit: "10" }), userId);
+  const parsed = parseBoardQuery(apiParams(p, { limit: "20" }), userId);
   if (!parsed.ok) return <InvalidQuery fields={parsed.fields} />;
   const { column: _c, cursor: _cur, ...opts } = parsed.data;
   const { columns } = await boardTickets(opts);

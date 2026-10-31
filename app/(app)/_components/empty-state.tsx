@@ -66,6 +66,63 @@ export function EmptyState({ params, paged }: { params: Record<string, string>; 
   );
 }
 
+/**
+ * The inbox's right pane when there is nothing to open: a stamped coupon whose copy matches why
+ * (the filters match nothing vs. the queue is empty).
+ */
+export function NoTicketSelected({ params }: { params: Record<string, string> }) {
+  const active = FILTER_KEYS.some((k) => params[k]);
+  const parts = describe(params);
+  return (
+    <div>
+      <div className="tab-row pl-4">
+        <span className="tab" data-tone="ground">
+          Open coupon
+        </span>
+      </div>
+      <div className="coupon">
+        <div className="flex flex-wrap items-start justify-between gap-4 p-6">
+          <h2 className="caps-bold text-2xl text-ink">No ticket selected</h2>
+          <div className="rubber rubber-void" style={{ ["--rubber-rot" as string]: "-6deg" }}>
+            <span className="rubber-word text-lg">None open</span>
+          </div>
+        </div>
+        <div className="perf" aria-hidden="true" />
+        <div className="space-y-3 p-6 text-sm text-ink-2">
+          {active ? (
+            <>
+              <p>
+                The list has no tickets {parts.join(", ")}, so there is nothing to open here. Loosen a filter, or clear them
+                all to see the whole queue.
+              </p>
+              <Link href={hrefWith(params, Object.fromEntries(FILTER_KEYS.map((k) => [k, null])))} className="btn btn-sm">
+                Clear all filters
+              </Link>
+            </>
+          ) : (
+            <>
+              <p>The queue is empty. A ticket opens here as soon as one arrives:</p>
+              <ul className="space-y-2">
+                <li className="flex gap-2">
+                  <Mail className="mt-0.5 size-4 shrink-0 text-ink" strokeWidth={1.5} aria-hidden="true" />
+                  <span>Inbound email is posted to <code className="font-mono text-xs text-carbon">/api/webhook</code> by your mail provider.</span>
+                </li>
+                <li className="flex gap-2">
+                  <PenLine className="mt-0.5 size-4 shrink-0 text-ink" strokeWidth={1.5} aria-hidden="true" />
+                  <span>Phone and chat tickets are logged with New ticket.</span>
+                </li>
+              </ul>
+              <Link href="/tickets/new" className="btn btn-sm btn-navy">
+                Log a ticket
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ExpiredPage({ href }: { href: string }) {
   return (
     <Shell icon={<TriangleAlert className="size-6" strokeWidth={1.5} aria-hidden="true" />} title="That page link has expired">

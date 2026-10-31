@@ -4,9 +4,10 @@ import { listReplies } from "@/lib/replies";
 import { getTicket, listAssignableUsers } from "@/lib/tickets";
 import { getLatestAttempt } from "@/lib/triage";
 import { LABELS } from "../../_lib/params";
-import { CategoryLabel, SourceLabel, TicketNo, UrgencyTab, stampTime, timeAgo } from "../../_components/ticket-labels";
+import { stampTime, timeAgo } from "../../_components/ticket-labels";
 import { WithArticlePanel } from "./article-panel";
 import { TicketActions } from "./close-button";
+import { CappedText } from "./capped-text";
 import { ReassignForm } from "./reassign-form";
 import { ReplyEditor } from "./reply-editor";
 import { Thread } from "./replies";
@@ -45,76 +46,90 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
       <div>
         <div className="tab-row pl-4">
           <span className="tab" data-tone="navy">
-            Ticket <TicketNo id={ticket.id} className="!text-white" />
+            {ticket.source === "webhook" ? "Email" : "Form"} ticket
           </span>
-          <span className="tab">
-            <SourceLabel source={ticket.source} withIcon />
-          </span>
-          {triage && (
-            <span className="tab" data-tone={triage.urgency === "high" ? "red" : undefined}>
-              {LABELS.urgency[triage.urgency]} urgency
+          {triage ? (
+            <>
+              <span className="tab" data-tone={triage.urgency === "high" ? "red" : undefined}>
+                {LABELS.urgency[triage.urgency]} urgency
+              </span>
+              <span className="tab">{LABELS.category[triage.category]}</span>
+            </>
+          ) : (
+            <span className="tab" data-tone="ground">
+              Not triaged
             </span>
           )}
         </div>
 
         <div className="coupon">
-          <header className="relative p-4 pb-3 sm:px-5">
-            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-              <div className="min-w-0 flex-1">
-                <h1 id={headingId} className="text-xl font-semibold leading-snug text-ink sm:text-2xl">
-                  {ticket.subject}
-                </h1>
-                <p className="mt-1 text-sm text-ink-2">
-                  From <span className="font-medium text-ink">{ticket.customerName ?? ticket.customerEmail}</span>
-                  {ticket.customerName && <span className="text-ink-2"> &lt;{ticket.customerEmail}&gt;</span>}
+          <header className="grid md:grid-cols-[auto_1fr]">
+            {/* Stub: the ticket number at display scale, like a flight code on a coupon. */}
+            <div className="flex items-end justify-between gap-3 border-b border-dashed border-ink-3 bg-panel-2 px-4 py-3 md:flex-col md:items-start md:justify-start md:rounded-tl-[var(--radius-coupon)] md:border-b-0 md:px-5 md:py-4">
+              <div>
+                <p className="field-label">Ticket</p>
+                <p
+                  className="font-display text-[2.75rem] font-bold leading-[0.9] tracking-[0.01em] text-carbon [font-variant-numeric:tabular-nums] md:text-[3.5rem]"
+                  aria-label={`Ticket ${ticket.id}`}
+                >
+                  <span className="text-[0.55em] align-top text-carbon/70">#</span>
+                  {String(ticket.id).padStart(4, "0")}
                 </p>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-3">
-                <div className={`rubber ${STATUS_RUBBER[ticket.status]}`} style={{ ["--rubber-rot" as string]: "-3deg" }}>
-                  <span className="rubber-word text-lg">{LABELS.status[ticket.status]}</span>
-                  <span className="rubber-meta num !text-current">{stampTime(ticket.updatedAt)}</span>
-                </div>
-                <TicketActions ticketId={ticket.id} status={ticket.status} canClose={admin || replies.length > 0} admin={admin} />
-              </div>
-            </div>
-
-            <dl className="mt-3 grid grid-cols-2 border-t border-rule sm:grid-cols-4">
-              <Field label="Received">
-                <time dateTime={ticket.createdAt.toISOString()} className="num text-sm">
+              <div className="md:mt-3">
+                <p className="field-label">Received</p>
+                <time dateTime={ticket.createdAt.toISOString()} className="num block text-xs">
                   {stampTime(ticket.createdAt)}
                 </time>
-                <span className="ml-1.5 text-xs text-ink-3">({timeAgo(ticket.createdAt)} ago)</span>
-              </Field>
-              <Field label="Replies sent">
-                <span className="num text-sm">{replies.length}</span>
-              </Field>
-              <Field label="Triage">
-                {triage ? (
-                  <span className="flex flex-wrap items-center gap-2">
-                    <UrgencyTab urgency={triage.urgency} />
-                    <CategoryLabel category={triage.category} />
-                  </span>
-                ) : (
-                  <span className="text-sm text-ink-3">Not triaged</span>
-                )}
-              </Field>
-              <Field label="Owner">
-                {admin ? (
-                  <ReassignForm ticketId={ticket.id} currentAssigneeId={ticket.assignee?.id ?? null} users={users} />
-                ) : (
-                  <span className={`text-sm ${ticket.assignee ? "font-medium text-ink" : "text-ink-3"}`}>
-                    {ticket.assignee?.name ?? "Unassigned"}
-                  </span>
-                )}
-              </Field>
-            </dl>
+              </div>
+            </div>
+            <div className="perf-v min-w-0 p-4 md:px-5">
+              <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                <div className="min-w-0 flex-1">
+                  <h1 id={headingId} className="text-xl font-semibold leading-snug text-ink sm:text-2xl">
+                    {ticket.subject}
+                  </h1>
+                  <p className="mt-1 text-sm text-ink-2">
+                    From <span className="font-medium text-ink">{ticket.customerName ?? ticket.customerEmail}</span>
+                    {ticket.customerName && <span className="text-ink-2"> &lt;{ticket.customerEmail}&gt;</span>}
+                  </p>
+                  <dl className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule pt-2.5 text-sm">
+                    <div className="flex items-center gap-2">
+                      <dt className="field-label">Age</dt>
+                      <dd className="num text-xs">{timeAgo(ticket.createdAt)}</dd>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <dt className="field-label">Replies</dt>
+                      <dd className="num text-xs">{replies.length}</dd>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <dt className="field-label">Owner</dt>
+                      <dd>
+                        {admin ? (
+                          <ReassignForm ticketId={ticket.id} currentAssigneeId={ticket.assignee?.id ?? null} users={users} />
+                        ) : (
+                          <span className={ticket.assignee ? "font-medium text-ink" : "text-ink-2"}>{ticket.assignee?.name ?? "Unassigned"}</span>
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-3">
+                  <div className={`rubber ${STATUS_RUBBER[ticket.status]}`} style={{ ["--rubber-rot" as string]: "-3deg" }}>
+                    <span className="rubber-word text-lg">{ticket.status === "closed" ? "Void" : LABELS.status[ticket.status]}</span>
+                    <span className="rubber-meta">{ticket.status === "closed" ? "Closed " : ""}<span className="font-mono normal-case tracking-normal">{stampTime(ticket.updatedAt)}</span></span>
+                  </div>
+                  <TicketActions ticketId={ticket.id} status={ticket.status} canClose={admin || replies.length > 0} admin={admin} />
+                </div>
+              </div>
+            </div>
           </header>
 
           <div className="perf" aria-hidden="true" />
 
           <section aria-label="Customer message" className="px-4 py-4 sm:px-5">
             <h2 className="field-label mb-2">Customer message</h2>
-            <div className="max-w-[72ch] whitespace-pre-wrap break-words text-ink">{ticket.body}</div>
+            <CappedText text={ticket.body} compact={embedded} />
           </section>
         </div>
       </div>
@@ -128,17 +143,9 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
           ticketId={ticket.id}
           draft={triage && { triageId: triage.id, text: triage.draft }}
           closed={ticket.status === "closed"}
+          compact={embedded}
         />
       </WithArticlePanel>
     </article>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0 border-b border-rule-soft py-2 pr-3 sm:border-b-0 sm:border-r sm:px-3 sm:first:pl-0 sm:last:border-r-0">
-      <dt className="field-label">{label}</dt>
-      <dd className="mt-1">{children}</dd>
-    </div>
   );
 }

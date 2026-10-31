@@ -2,13 +2,42 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type { TicketListItem } from "@/lib/tickets";
 import { hrefWith } from "../_lib/params";
-import { Age, CategoryLabel, SourceLabel, StatusStamp, TicketNo, UrgencyTab } from "./ticket-labels";
+import { Age, CategoryLabel, SourceLabel, StatusStamp, TicketNo, TriageMarker, UrgencyTab } from "./ticket-labels";
 
 /** Dense table view. Created sorts newest/oldest; Updated sorts by last update (the API's three sorts). */
 export function TicketTable({ tickets, params }: { tickets: TicketListItem[]; params: Record<string, string> }) {
   const sort = params.sort ?? "newest";
   return (
-    <div className="coupon max-h-[calc(100vh-13rem)] overflow-auto">
+    <>
+    {/* Under 640px: stacked cards, one per row, same order and data. */}
+    <ul className="space-y-1.5 sm:hidden" aria-label="Tickets">
+      {tickets.map((t) => (
+        <li key={t.id}>
+          <Link
+            href={`/tickets/${t.id}`}
+            data-ticket-row
+            className="block rounded-[var(--radius-coupon)] border border-rule-soft bg-panel px-3 py-2 transition-colors duration-150 hover:border-ink"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <TicketNo id={t.id} className="text-xs font-medium" />
+              <span className="flex items-center gap-2">
+                <StatusStamp status={t.status} />
+                <Age date={t.createdAt} />
+              </span>
+            </div>
+            <p className="mt-1 truncate font-medium text-ink">{t.subject}</p>
+            <div className="mt-1 flex items-center justify-between gap-2 text-sm text-ink-2">
+              <span className="truncate">
+                {t.customerName ?? t.customerEmail} <span aria-hidden="true">/</span>{" "}
+                <span className={t.assignee ? "" : "text-ink-3"}>{t.assignee?.name ?? "Unassigned"}</span>
+              </span>
+              <TriageMarker triage={t.triage} />
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
+    <div className="coupon hidden max-h-[calc(100vh-15.5rem)] overflow-auto sm:block">
       <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
         <caption className="sr-only">Tickets. Column headers for Created and Updated change the sort.</caption>
         <thead className="sticky top-0 z-10 bg-panel-2 shadow-[0_1px_0_var(--color-rule)]">
@@ -35,7 +64,7 @@ export function TicketTable({ tickets, params }: { tickets: TicketListItem[]; pa
         </thead>
         <tbody>
           {tickets.map((t) => (
-            <tr key={t.id} className="group border-b border-rule-soft transition-colors duration-150 last:border-b-0 hover:bg-navy-hover">
+            <tr key={t.id} className="group h-11 border-b border-rule-soft transition-colors duration-150 last:border-b-0 hover:bg-navy-hover">
               <td className="px-3 py-2">
                 <TicketNo id={t.id} className="text-xs" />
               </td>
@@ -71,6 +100,7 @@ export function TicketTable({ tickets, params }: { tickets: TicketListItem[]; pa
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
