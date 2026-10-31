@@ -24,6 +24,11 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Ten short help articles (`samples/help-articles.json`, seeded into `help_articles`) cover the sample topics; all of them are included in the prompt (no retrieval).
 - Triage cost per ticket (default `gemini-3.5-flash-lite`, $0.30 / $2.50 per 1M input / output tokens): the prompt is about 2k tokens (10 articles ≈ 1.2k, instructions ≈ 0.4k, email ≤ 0.3k) and a reply about 300, so 2,000 × $0.30/1M + 300 × $2.50/1M ≈ $0.0006 + $0.00075 ≈ **$0.0014 per ticket**. Worst case (4k in, full 1,500 out) is $0.0012 + $0.00375 ≈ $0.005. Each ticket costs at most one call because results are cached; at 50 calls a day the worst case is about $0.25/day (~$7.50/month).
 - Prompt injection: the customer's email is placed in the prompt between `<customer_ticket>` tags as untrusted data (tags inside the text are neutralised) and the instructions tell the model never to follow it. This lowers the risk but no prompt-level defence is complete (sample `Question about my subscription` tries it). The real control is human review: the AI only suggests a draft, an agent reads and edits it, and nothing is ever sent automatically.
+- Daily AI cap: at most `AI_DAILY_CAP` (default 50) provider calls per UTC day, counted in `ai_usage`. Every provider call counts (first triage, retry after an error, regenerate); cached results do not. At the cap `POST /api/tickets/:id/triage` returns **429** `{"error": "The daily AI limit (N triage calls) has been reached. Write the reply manually; AI triage is available again tomorrow (UTC).", "code": "ai_daily_cap_reached"}` without calling the provider or storing anything; the panel shows that message and replying works as normal. The count resets at 00:00 UTC.
+- Redaction: email addresses and phone numbers (digit runs of 9+ digits with spaces, dots, dashes, parentheses or a leading `+`) are replaced with `[email removed]` / `[phone removed]` in the subject and body before they are sent to the provider (`lib/triage/redact.ts`). The stored ticket is unchanged. Dates, amounts and short order numbers are kept.
+- Admin regenerate: `POST /api/tickets/:id/triage` with `{"force": true}` makes a new call even over a valid result and the new result replaces it. Admin only: an agent gets 403 and nothing is called. The "Regenerate (admin)" button is shown only to admins. Agents can still retry after a failed triage (plain `POST`, no body). A malformed body returns 400.
+- Ticket list shows category and urgency badges for tickets whose latest triage is valid ("Triage failed" or "Not triaged yet" otherwise).
+- Data handling: on a **free-tier Gemini key, Google may use the prompts (ticket text) to improve its products**. Redaction reduces what is shared but does not remove it (names, account details and free text still go out). Production should use a paid (billing-enabled) key, whose prompts are not used that way.
 
 ## What was left out
 
@@ -75,7 +80,18 @@ Running it a second time returns `200` with `"created":false` for both and adds 
 
 ## Known problem and fix
 
-_To be filled in as features land (planned: the AI daily-cap race, fixed with an atomic counter update)._
+**The daily AI cap can be overshot by simultaneous requests.** `takeDailySlot` in `lib/triage/usage.ts` first reads today's `ai_usage.calls`, compares it with `AI_DAILY_CAP`, and only then increments it in a second statement. Two triage requests arriving at the same moment when one slot is left can both read `calls = cap - 1`, both pass the check and both call Gemini, so the day ends at `cap + 1` (or more with more concurrent requests). With four agents the overshoot is small, but it is a real hole in a spend control.
+
+**Fix:** reserve the slot with one atomic statement before calling the provider, and refuse when it returns no row:
+
+```sql
+INSERT INTO ai_usage (day, calls) VALUES ($today, 1)
+ON CONFLICT (day) DO UPDATE SET calls = ai_usage.calls + 1
+WHERE ai_usage.calls < $cap
+RETURNING calls;
+```
+
+Postgres takes a row lock for the conflicting update, so concurrent requests are serialised on the counter and at most `cap` of them get a row back. (A cap of 0 needs the insert branch guarded too, e.g. skip the call when `cap = 0`.) It was left as the simple check-then-increment deliberately, as the documented known problem.
 
 ## Demo
 

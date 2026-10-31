@@ -3,7 +3,9 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { helpArticles, tickets, triageResults, type TriageCategory, type TriageUrgency } from "@/lib/db/schema";
-import { triageModelName } from "./config";
+import { aiDailyCap, triageModelName } from "./config";
+import { takeDailySlot } from "./usage";
+import { redactContactDetails } from "./redact";
 import { runTriageModel, type TriageInput } from "./provider";
 import { triageOutputSchema } from "./schema";
 
@@ -25,6 +27,8 @@ export type TriageView =
 
 export type TriageOutcome =
   | { kind: "not_found" }
+  /** Today's AI call cap is used up; nothing was called or stored. */
+  | { kind: "cap_reached"; cap: number }
   /** `cached`: a stored valid result was returned without calling the provider. */
   | { kind: "done"; triage: TriageView; cached: boolean };
 
@@ -108,8 +112,9 @@ async function validate(rawText: string) {
  * (cache) unless `force` is set; otherwise makes exactly one provider call and stores the
  * outcome. A failed attempt is stored as an error with the raw output and can be retried.
  *
- * Ticket 08 hooks: `force` is admin regenerate; the daily cap check and redaction go between
- * the cache check and the provider call.
+ * `force` is admin regenerate (the route enforces the role). Before the provider call the daily
+ * cap is checked (`cap_reached`, nothing called or stored) and customer emails and phone numbers
+ * are redacted from the text sent.
  */
 export async function requestTriage(
   ticketId: number,
@@ -128,11 +133,18 @@ export async function requestTriage(
     if (current && current.error === null) return { kind: "done", triage: await toView(current), cached: true };
   }
 
+  if (!(await takeDailySlot())) return { kind: "cap_reached", cap: aiDailyCap() };
+
   const articles = await db
     .select({ id: helpArticles.id, title: helpArticles.title, body: helpArticles.body })
     .from(helpArticles)
     .orderBy(helpArticles.id);
-  const input: TriageInput = { subject: ticket.subject, body: ticket.body, articles };
+  // Customer emails and phone numbers never reach the provider; the stored ticket is unchanged.
+  const input: TriageInput = {
+    subject: redactContactDetails(ticket.subject),
+    body: redactContactDetails(ticket.body),
+    articles,
+  };
 
   let record: typeof triageResults.$inferInsert;
   const base = { ticketId, requestedBy: opts.requestedBy };

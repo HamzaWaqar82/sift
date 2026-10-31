@@ -18,6 +18,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await sql`truncate tickets restart identity cascade`;
+  await sql`truncate ai_usage`;
   provider.mockReset();
 });
 afterAll(async () => {

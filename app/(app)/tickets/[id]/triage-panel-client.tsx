@@ -14,17 +14,33 @@ const URGENCY_STYLES = {
   high: "bg-red-100 text-red-800",
 };
 
-export function TriagePanelClient({ ticketId, initial }: { ticketId: number; initial: TriageViewJson | null }) {
+export function TriagePanelClient({
+  ticketId,
+  initial,
+  canRegenerate = false,
+}: {
+  ticketId: number;
+  initial: TriageViewJson | null;
+  canRegenerate?: boolean;
+}) {
   const router = useRouter();
   const [triage, setTriage] = useState<TriageViewJson | null>(initial);
   const [pending, setPending] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
 
-  async function run() {
+  async function run(force = false) {
+    if (force && !window.confirm("Regenerate this triage? This makes a new AI call and replaces the current result.")) {
+      return;
+    }
     setPending(true);
     setRequestError(null);
     try {
-      const res = await fetch(`/api/tickets/${ticketId}/triage`, { method: "POST" });
+      const res = await fetch(
+        `/api/tickets/${ticketId}/triage`,
+        force
+          ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ force: true }) }
+          : { method: "POST" },
+      );
       const json = await res.json().catch(() => null);
       if (json?.triage) {
         setTriage(json.triage);
@@ -44,10 +60,20 @@ export function TriagePanelClient({ ticketId, initial }: { ticketId: number; ini
     <section aria-label="AI triage" aria-busy={pending} className="rounded-lg border border-slate-200 bg-white p-5">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">AI triage</h2>
+        {triage?.status === "ok" && canRegenerate && (
+          <button
+            type="button"
+            onClick={() => run(true)}
+            disabled={pending}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {pending ? "Regenerating..." : "Regenerate (admin)"}
+          </button>
+        )}
         {triage?.status !== "ok" && (
           <button
             type="button"
-            onClick={run}
+            onClick={() => run()}
             disabled={pending}
             className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
           >

@@ -19,9 +19,13 @@ export function SourceLabel({ source }: { source: TicketSource }) {
   return <span className="text-xs text-slate-500">{source === "webhook" ? "Email" : "Form"}</span>;
 }
 
-const URGENCY_STYLES = { low: "text-slate-600", medium: "text-amber-700", high: "text-red-700 font-semibold" };
+const URGENCY_BADGE_STYLES = {
+  low: "bg-slate-100 text-slate-700",
+  medium: "bg-amber-100 text-amber-800",
+  high: "bg-red-100 text-red-800 font-semibold",
+};
 
-/** Category and urgency for triaged tickets; a clear marker otherwise. */
+/** Category and urgency badges for tickets whose latest triage is valid; a clear marker otherwise. */
 export function TriageMarker({ triage }: { triage: TriageSummary }) {
   if (!triage) {
     return <span className="text-xs italic text-slate-400">Not triaged yet</span>;
@@ -30,10 +34,13 @@ export function TriageMarker({ triage }: { triage: TriageSummary }) {
     return <span className="text-xs text-red-600">Triage failed</span>;
   }
   return (
-    <span className="text-xs">
-      <span className="capitalize text-slate-700">{triage.category.replace("_", " ")}</span>
-      <span className="text-slate-400"> · </span>
-      <span className={`capitalize ${URGENCY_STYLES[triage.urgency]}`}>{triage.urgency}</span>
+    <span className="mt-1 flex flex-wrap gap-1 text-xs">
+      <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-medium capitalize text-indigo-800">
+        {triage.category.replace("_", " ")}
+      </span>
+      <span className={`rounded-full px-2 py-0.5 font-medium capitalize ${URGENCY_BADGE_STYLES[triage.urgency]}`}>
+        {triage.urgency} urgency
+      </span>
     </span>
   );
 }
