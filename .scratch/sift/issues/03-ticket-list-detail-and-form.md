@@ -6,15 +6,15 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] List shows tickets newest first with subject, customer, status, assignee, source and age
-- [ ] Status filter (open, replied, closed); the filter and page position live in the URL; changing the filter restarts from the first page
-- [ ] Cursor paging, 20 per page, with a Next control; going back uses browser history; inserting tickets between pages never duplicates or skips a ticket
-- [ ] Empty state shown when nothing matches
-- [ ] Ticket detail shows the full customer message, status and assignee
-- [ ] Any agent can close a ticket
-- [ ] Form creates a ticket (customer email, subject, body) with source `form`; invalid input shows field errors
-- [ ] A set of realistic sample emails is generated and seeded; the list shows a clear "not triaged yet" marker for each
-- [ ] API-level tests cover: filtering, cursor paging stability, form validation, close
-- [ ] README: record the trade-off that category and urgency are not shown in the list until a ticket has been triaged
+- [x] List shows tickets newest first with subject, customer, status, assignee, source and age
+- [x] Status filter (open, replied, closed); the filter and page position live in the URL; changing the filter restarts from the first page
+- [x] Cursor paging, 20 per page, with a Next control; going back uses browser history; inserting tickets between pages never duplicates or skips a ticket
+- [x] Empty state shown when nothing matches
+- [x] Ticket detail shows the full customer message, status and assignee
+- [x] Any agent can close a ticket
+- [x] Form creates a ticket (customer email, subject, body) with source `form`; invalid input shows field errors
+- [x] A set of realistic sample emails is generated and seeded; the list shows a clear "not triaged yet" marker for each
+- [x] API-level tests cover: filtering, cursor paging stability, form validation, close
+- [x] README: record the trade-off that category and urgency are not shown in the list until a ticket has been triaged

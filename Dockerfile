@@ -8,6 +8,7 @@ RUN npm ci
 FROM deps AS migrator
 COPY drizzle ./drizzle
 COPY scripts ./scripts
+COPY samples ./samples
 CMD ["sh", "-c", "node scripts/migrate.mjs && node scripts/seed.mjs"]
 
 FROM deps AS build

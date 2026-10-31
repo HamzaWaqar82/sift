@@ -1,9 +1,10 @@
-// Seeds the staff accounts (4 agents + 1 admin). There is no sign-up; this is the only way
+// Seeds the staff accounts (4 agents + 1 admin) and the sample tickets (samples/emails.json). There is no sign-up; this is the only way
 // users are created. Idempotent: re-running updates names, roles and password hashes, so
 // changing SEED_*_PASSWORD in the environment and re-running rotates the passwords.
 // Run by the `migrate` Compose service after migrations, by `npm run db:seed`, and by tests.
 import bcrypt from "bcryptjs";
 import postgres from "postgres";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 export const SEED_USERS = [
@@ -37,6 +38,34 @@ export async function seedUsers(url, { adminPassword, agentPassword }) {
   }
 }
 
+const SAMPLE_EMAILS = new URL("../samples/emails.json", import.meta.url);
+
+/**
+ * Seeds each sample email (webhook contract shape) as an open, unassigned webhook ticket.
+ * Idempotent: keyed on the email's message_id, so re-running never duplicates or overwrites.
+ * The emails in samples/live/ are deliberately NOT seeded; they are posted live in the demo.
+ * Returns the number of tickets newly created.
+ */
+export async function seedSampleTickets(url) {
+  const emails = JSON.parse(await readFile(SAMPLE_EMAILS, "utf8"));
+  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  let created = 0;
+  try {
+    for (const e of emails) {
+      const rows = await sql`
+        insert into tickets (customer_email, customer_name, subject, body, source, external_message_id, created_at, updated_at)
+        values (${e.from.email.toLowerCase()}, ${e.from.name ?? null}, ${e.subject}, ${e.body}, 'webhook',
+                ${e.message_id}, ${e.received_at}, ${e.received_at})
+        on conflict (external_message_id) do nothing
+        returning id`;
+      created += rows.length;
+    }
+  } finally {
+    await sql.end();
+  }
+  return created;
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -48,6 +77,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     agentPassword: process.env.SEED_AGENT_PASSWORD,
   })
     .then(() => console.log(`seeded ${SEED_USERS.length} users`))
+    .then(() => seedSampleTickets(url))
+    .then((n) => console.log(`seeded ${n} new sample tickets`))
     .catch((err) => {
       console.error("seed failed:", err.message);
       process.exit(1);

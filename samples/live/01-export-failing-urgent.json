@@ -1,0 +1,7 @@
+{
+  "from": { "email": "marcus.reid@hollowayfoods.com", "name": "Marcus Reid" },
+  "subject": "URGENT: data export fails every time, payroll due today",
+  "body": "Hi,\n\nI need to export our timesheets for payroll, which is due at 5pm today. Every time I click Export > All time entries, the spinner runs for about a minute and then I get \"Something went wrong (error E-EXP-504)\". I've tried Chrome and Firefox, and a smaller date range (just October) fails the same way.\n\nIs there another way to get the data out quickly? This is blocking pay for 60 staff.\n\nMarcus Reid\nOperations Manager, Holloway Foods",
+  "received_at": "2026-10-31T09:30:00Z",
+  "message_id": "<mr-live-01-export@hollowayfoods.com>"
+}
