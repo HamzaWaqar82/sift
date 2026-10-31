@@ -105,10 +105,10 @@ type Handler<Ctx> = (req: Request, ctx: Ctx) => Promise<Response> | Response;
  * Wraps a route handler: HttpError becomes its uniform error body; anything else is logged
  * server-side and answered with a generic 500 (no stack traces, no database error text).
  */
-export function route<Ctx = void>(handler: Handler<Ctx>): (req: Request, ctx: Ctx) => Promise<Response> {
+export function route<Ctx = unknown>(handler: Handler<Ctx>): (req: Request, ctx?: Ctx) => Promise<Response> {
   return async (req, ctx) => {
     try {
-      return await handler(req, ctx);
+      return await handler(req, ctx as Ctx);
     } catch (err) {
       if (err instanceof HttpError) return apiError(err.status, err.message, { code: err.code, fields: err.fields });
       console.error(`[api] unhandled error in ${req.method} ${safePath(req)}:`, err);
