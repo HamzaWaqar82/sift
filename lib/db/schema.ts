@@ -137,3 +137,9 @@ export type TicketSource = (typeof ticketSource.enumValues)[number];
 export type TicketStatus = (typeof ticketStatus.enumValues)[number];
 export type TriageCategory = (typeof triageCategory.enumValues)[number];
 export type TriageUrgency = (typeof triageUrgency.enumValues)[number];
+
+/** A staff user as shown next to tickets and replies (assignee, reply sender, assignee picker). */
+export type UserRef = { id: number; name: string; email: string };
+
+/** A help article the AI may cite; also what the article panel shows. */
+export type HelpArticle = { id: string; title: string; body: string };

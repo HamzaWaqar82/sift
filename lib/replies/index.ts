@@ -2,8 +2,8 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { replies, tickets, users } from "@/lib/db/schema";
-import { getTicket, type TicketDetail } from "@/lib/tickets";
+import { replies, tickets, users, type UserRef } from "@/lib/db/schema";
+import { getTicket, getValidTriage } from "@/lib/tickets";
 
 export const replyInputSchema = z.object({
   body: z
@@ -11,6 +11,11 @@ export const replyInputSchema = z.object({
     .max(20_000, "Reply must be 20,000 characters or fewer")
     .refine((s) => s.trim().length > 0, "Reply cannot be empty"),
   idempotencyKey: z.string().trim().min(8).max(200),
+  /**
+   * The triage result whose draft the reply box started from (the `draftTriageId` the client
+   * was given), or null when no AI draft was shown. Omitted means null.
+   */
+  draftTriageId: z.number().int().positive().nullable().default(null),
 });
 
 export type ReplyInput = z.infer<typeof replyInputSchema>;
@@ -22,14 +27,8 @@ export type Reply = {
   finalBody: string;
   edited: boolean;
   sentAt: Date;
-  sentBy: { id: number; name: string; email: string };
+  sentBy: UserRef;
 };
-
-/** The draft the reply box starts with: the latest triage's draft when that triage is valid. */
-export function currentDraft(ticket: Pick<TicketDetail, "triage">): string | null {
-  const t = ticket.triage;
-  return t && t.error === null ? t.draft : null;
-}
 
 export class IdempotencyConflictError extends Error {
   constructor() {
@@ -37,20 +36,33 @@ export class IdempotencyConflictError extends Error {
   }
 }
 
+/** `draftTriageId` is not a valid triage result of this ticket. */
+export class UnknownDraftError extends Error {
+  constructor() {
+    super("draftTriageId is not a valid triage result of this ticket");
+  }
+}
+
 /**
  * Records a reply and sets the ticket to replied, in one transaction.
- * The AI draft and the edited flag are taken from the stored triage, never from the client.
+ * The AI draft is loaded from the stored triage result the client says it displayed
+ * (`draftTriageId`), never taken from the client, and `edited` is computed against it. So an
+ * admin regenerating mid-compose does not make an unchanged send of the older draft "edited".
  * A repeat with the same idempotency key returns the original reply with `created: false`.
- * Returns null when the ticket does not exist.
+ * Returns null when the ticket does not exist; throws UnknownDraftError for a bad draftTriageId.
  */
 export async function sendReply(
   ticketId: number,
   userId: number,
   input: ReplyInput,
 ): Promise<{ reply: Reply; created: boolean } | null> {
-  const ticket = await getTicket(ticketId);
-  if (!ticket) return null;
-  const aiDraft = currentDraft(ticket);
+  if (!(await getTicket(ticketId))) return null;
+  let aiDraft: string | null = null;
+  if (input.draftTriageId !== null) {
+    const shown = await getValidTriage(ticketId, input.draftTriageId);
+    if (!shown) throw new UnknownDraftError();
+    aiDraft = shown.draft;
+  }
   const edited = aiDraft === null || input.body !== aiDraft;
 
   const created = await getDb().transaction(async (tx) => {

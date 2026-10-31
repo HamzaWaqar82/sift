@@ -1,6 +1,6 @@
-import { currentDraft, listReplies } from "@/lib/replies";
+import { listReplies } from "@/lib/replies";
 import type { TicketDetail } from "@/lib/tickets";
-import { timeAgo } from "../../_components/ticket-bits";
+import { timeAgo } from "../../_components/ticket-labels";
 import { WithArticlePanel } from "./article-panel";
 import { ReplyEditor } from "./reply-editor";
 
@@ -28,7 +28,12 @@ export async function TicketReplies({ ticket }: { ticket: TicketDetail }) {
           <div className="whitespace-pre-wrap break-words text-slate-800">{r.finalBody}</div>
         </article>
       ))}
-      <WithArticlePanel grounding={ticket.grounding}><ReplyEditor ticketId={ticket.id} draft={currentDraft(ticket)} /></WithArticlePanel>
+      <WithArticlePanel grounding={ticket.grounding}>
+        <ReplyEditor
+          ticketId={ticket.id}
+          draft={ticket.currentTriage && { triageId: ticket.currentTriage.id, text: ticket.currentTriage.draft }}
+        />
+      </WithArticlePanel>
     </div>
   );
 }

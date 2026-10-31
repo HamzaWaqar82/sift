@@ -247,7 +247,7 @@ describe("create ticket from the form", () => {
       source: "form",
       status: "open",
       assignee: null,
-      triage: null,
+      currentTriage: null,
     });
   });
 

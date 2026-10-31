@@ -10,8 +10,11 @@ x-app-env: &app-env
   AI_DAILY_CAP: ${AI_DAILY_CAP:-50}
   WEBHOOK_SECRET: ${WEBHOOK_SECRET:-dev-webhook-secret}
   SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-change-me-at-least-32-chars}
-  SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin-dev-password}
-  SEED_AGENT_PASSWORD: ${SEED_AGENT_PASSWORD:-agent-dev-password}
+  SEED_PASSWORD_ADMIN: ${SEED_PASSWORD_ADMIN:-admin-dev-password}
+  SEED_PASSWORD_ALICE: ${SEED_PASSWORD_ALICE:-alice-dev-password}
+  SEED_PASSWORD_BEN: ${SEED_PASSWORD_BEN:-ben-dev-password}
+  SEED_PASSWORD_CHLOE: ${SEED_PASSWORD_CHLOE:-chloe-dev-password}
+  SEED_PASSWORD_DEV: ${SEED_PASSWORD_DEV:-dev-dev-password}
 
 services:
   db:

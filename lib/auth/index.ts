@@ -38,19 +38,19 @@ export async function requireUser(req: Request): Promise<SessionUser | Response>
   return user ?? NextResponse.json({ error: "Sign in required" }, { status: 401 });
 }
 
-/** The signed-in user if they have `role`, else a 401 (signed out) or 403 (wrong role) Response. */
-export async function requireRole(req: Request, role: UserRole): Promise<SessionUser | Response> {
+/** Whether this user may do admin-only things (reassign, regenerate triage). The one role check. */
+export function isAdmin(user: Pick<SessionUser, "role"> | null | undefined): boolean {
+  return user?.role === "admin";
+}
+
+/** The signed-in admin, else a 401 (signed out) or 403 (not an admin) Response. */
+export async function requireAdmin(req: Request): Promise<SessionUser | Response> {
   const user = await requireUser(req);
   if (user instanceof Response) return user;
-  if (user.role !== role) {
+  if (!isAdmin(user)) {
     return NextResponse.json({ error: "You do not have permission to do that" }, { status: 403 });
   }
   return user;
-}
-
-/** Shorthand for requireRole(req, "admin"). */
-export function requireAdmin(req: Request): Promise<SessionUser | Response> {
-  return requireRole(req, "admin");
 }
 
 /** The signed-in user in a server component / server action, or null. */

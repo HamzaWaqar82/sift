@@ -326,8 +326,12 @@ say "Generating strong secrets (kept on re-runs so the database password never c
 write_env POSTGRES_PASSWORD   "$(_existing POSTGRES_PASSWORD   || _gen 24)"
 write_env SESSION_SECRET      "$(_existing SESSION_SECRET      || _gen 32)"
 write_env WEBHOOK_SECRET      "$(_existing WEBHOOK_SECRET      || _gen 32)"
-write_env SEED_ADMIN_PASSWORD "$(_existing SEED_ADMIN_PASSWORD || _gen 12)"
-write_env SEED_AGENT_PASSWORD "$(_existing SEED_AGENT_PASSWORD || _gen 12)"
+# One sign-in password per seeded account.
+write_env SEED_PASSWORD_ADMIN "$(_existing SEED_PASSWORD_ADMIN || _gen 12)"
+write_env SEED_PASSWORD_ALICE "$(_existing SEED_PASSWORD_ALICE || _gen 12)"
+write_env SEED_PASSWORD_BEN   "$(_existing SEED_PASSWORD_BEN   || _gen 12)"
+write_env SEED_PASSWORD_CHLOE "$(_existing SEED_PASSWORD_CHLOE || _gen 12)"
+write_env SEED_PASSWORD_DEV   "$(_existing SEED_PASSWORD_DEV   || _gen 12)"
 GEMINI_API_KEY=$(ENV_FILE="$LOCAL_APP_ENV" _existing GEMINI_API_KEY || true)
 if [[ -n "$GEMINI_API_KEY" ]]; then
   note "Using GEMINI_API_KEY from your local ${LOCAL_APP_ENV} (not copied into ${ENV_FILE})."
@@ -344,8 +348,11 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 AI_DAILY_CAP=50
 WEBHOOK_SECRET=${WEBHOOK_SECRET}
 SESSION_SECRET=${SESSION_SECRET}
-SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
-SEED_AGENT_PASSWORD=${SEED_AGENT_PASSWORD}
+SEED_PASSWORD_ADMIN=${SEED_PASSWORD_ADMIN}
+SEED_PASSWORD_ALICE=${SEED_PASSWORD_ALICE}
+SEED_PASSWORD_BEN=${SEED_PASSWORD_BEN}
+SEED_PASSWORD_CHLOE=${SEED_PASSWORD_CHLOE}
+SEED_PASSWORD_DEV=${SEED_PASSWORD_DEV}
 PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME}
 PRODENV
 _ssh "ls -l ${REMOTE_DIR}/.env"

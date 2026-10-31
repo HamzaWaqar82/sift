@@ -9,24 +9,34 @@ function newKey() {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+/** The current triage's draft and the id of the triage result it came from. */
+export type EditorDraft = { triageId: number; text: string };
+
 /**
  * Reply box, prefilled with the AI draft when one exists. Sending is an explicit click.
  * One idempotency key per compose session, so a double click or retry records one reply.
+ * The send carries the id of the triage result whose draft the box started from, so the server
+ * records that draft and computes `edited` against it even if a newer draft arrived meanwhile.
  */
-export function ReplyEditor({ ticketId, draft }: { ticketId: number; draft: string | null }) {
+export function ReplyEditor({ ticketId, draft }: { ticketId: number; draft: EditorDraft | null }) {
   const router = useRouter();
-  const [text, setText] = useState(draft ?? "");
+  const [text, setText] = useState(draft?.text ?? "");
   const [touched, setTouched] = useState(false);
-  const [shownDraft, setShownDraft] = useState(draft);
+  const [latestDraftId, setLatestDraftId] = useState(draft?.triageId ?? null);
+  // The triage result the box's text started from; null once it is a hand-written reply.
+  const [baseDraftId, setBaseDraftId] = useState(draft?.triageId ?? null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const key = useRef<string | null>(null);
   const sending = useRef(false);
 
   // A new draft (e.g. triage just ran) replaces the box only if the agent has not typed yet.
-  if (draft !== shownDraft) {
-    setShownDraft(draft);
-    if (!touched) setText(draft ?? "");
+  if ((draft?.triageId ?? null) !== latestDraftId) {
+    setLatestDraftId(draft?.triageId ?? null);
+    if (!touched) {
+      setText(draft?.text ?? "");
+      setBaseDraftId(draft?.triageId ?? null);
+    }
   }
 
   async function send() {
@@ -42,12 +52,13 @@ export function ReplyEditor({ ticketId, draft }: { ticketId: number; draft: stri
     const res = await fetch(`/api/tickets/${ticketId}/replies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: text, idempotencyKey: key.current }),
+      body: JSON.stringify({ body: text, idempotencyKey: key.current, draftTriageId: baseDraftId }),
     }).catch(() => null);
     if (res?.ok) {
       key.current = null;
       setText("");
       setTouched(true);
+      setBaseDraftId(null);
       router.refresh();
     } else {
       const json = await res?.json().catch(() => null);

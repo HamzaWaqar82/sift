@@ -175,7 +175,7 @@ describe("AI triage", () => {
   it("shows no triage for a ticket that has not been triaged", async () => {
     const id = await newTicket();
     const json = await (await readTriage(id)).json();
-    expect(json).toEqual({ triage: null, draft: null });
+    expect(json).toEqual({ triage: null, draft: null, draftTriageId: null });
   });
 
   it("requires sign-in and an existing ticket", async () => {

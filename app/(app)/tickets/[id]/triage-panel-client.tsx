@@ -101,7 +101,7 @@ export function TriagePanelClient({
 
       {triage?.status === "error" && !pending && (
         <div role="alert" className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm">
-          <p className="font-medium text-red-800">Triage failed. No draft is shown; write the reply manually or retry.</p>
+          <p className="font-medium text-red-800">The latest triage attempt failed. The reply box keeps the last valid draft, if there is one; otherwise write the reply manually or retry.</p>
           <p className="mt-1 text-red-700">{triage.error}</p>
           {triage.rawOutput !== null && (
             <details className="mt-2">

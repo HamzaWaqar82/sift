@@ -15,7 +15,8 @@ export function clientAddress(req: Request): string {
   return forwarded || req.headers.get("x-real-ip") || "unknown";
 }
 
-function current(address: string, now: number): Entry | undefined {
+/** The address's failure entry within the current window; drops it once the window has expired. */
+function activeEntry(address: string, now: number): Entry | undefined {
   const entry = failuresByAddress.get(address);
   if (entry && now - entry.windowStart >= WINDOW_MS) {
     failuresByAddress.delete(address);
@@ -26,13 +27,13 @@ function current(address: string, now: number): Entry | undefined {
 
 /** Seconds until this address may try again, or 0 if it is not blocked. */
 export function signInBlockedFor(address: string, now = Date.now()): number {
-  const entry = current(address, now);
+  const entry = activeEntry(address, now);
   if (!entry || entry.failures < MAX_FAILURES) return 0;
   return Math.ceil((entry.windowStart + WINDOW_MS - now) / 1000);
 }
 
 export function recordSignInFailure(address: string, now = Date.now()): void {
-  const entry = current(address, now);
+  const entry = activeEntry(address, now);
   if (entry) entry.failures += 1;
   else failuresByAddress.set(address, { failures: 1, windowStart: now });
 }

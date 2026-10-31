@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePageUser } from "@/lib/auth";
+import { isAdmin, requirePageUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +19,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {user.name}
               <span
                 className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${
-                  user.role === "admin" ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-700"
+                  isAdmin(user) ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-700"
                 }`}
               >
-                {user.role === "admin" ? "Admin" : "Agent"}
+                {isAdmin(user) ? "Admin" : "Agent"}
               </span>
             </span>
             <form action="/api/auth/sign-out" method="post">

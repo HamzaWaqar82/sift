@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ticketStatus } from "@/lib/db/schema";
 
 /** The agent's "new ticket" form (customer email, subject, body). */
 export const ticketFormSchema = z.object({
@@ -15,7 +16,7 @@ export const ticketFormSchema = z.object({
 
 export type TicketFormInput = z.infer<typeof ticketFormSchema>;
 
-export const TICKET_STATUSES = ["open", "replied", "closed"] as const;
+export const TICKET_STATUSES = ticketStatus.enumValues;
 
 /** List filters carried in the URL. */
 export const listQuerySchema = z.object({
@@ -28,14 +29,4 @@ export function parseTicketId(raw: string): number | null {
   if (!/^\d{1,9}$/.test(raw)) return null;
   const id = Number(raw);
   return id > 0 ? id : null;
-}
-
-/** Flattens Zod issues into { field: firstMessage } for form display. */
-export function fieldErrors(error: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? "form");
-    out[key] ??= issue.message;
-  }
-  return out;
 }

@@ -57,6 +57,7 @@ describe("POST /api/webhook", () => {
   });
 
   it("creates a webhook ticket from a sample email", async () => {
+    const before = Date.now();
     const res = await post(sample);
     expect(res.status).toBe(201);
     const { ticket, created } = await res.json();
@@ -70,8 +71,23 @@ describe("POST /api/webhook", () => {
       externalMessageId: "<mr-live-01-export@hollowayfoods.com>",
     });
     expect(ticket.body).toContain("error E-EXP-504");
-    expect(ticket.createdAt).toBe("2026-10-31T09:30:00.000Z");
+    // Server receive time, not the sender's received_at.
+    const createdAt = new Date(ticket.createdAt).getTime();
+    expect(createdAt).toBeGreaterThanOrEqual(before - 1000);
+    expect(createdAt).toBeLessThanOrEqual(Date.now() + 1000);
     expect((await listedTickets()).map((t) => t.id)).toEqual([ticket.id]);
+  });
+
+  it("orders tickets by when the server received them, ignoring the sender's received_at", async () => {
+    const first = await (await post({ ...sample, message_id: "<a@x>", received_at: "2099-01-01T00:00:00Z" })).json();
+    const second = await (await post({ ...sample, message_id: "<b@x>", received_at: "2001-01-01T00:00:00Z" })).json();
+
+    expect((await listedTickets()).map((t) => t.id)).toEqual([second.ticket.id, first.ticket.id]);
+  });
+
+  it("accepts an email without received_at", async () => {
+    const res = await post({ ...sample, received_at: undefined });
+    expect(res.status).toBe(201);
   });
 
   it("rejects a body that is not JSON, with a reason", async () => {

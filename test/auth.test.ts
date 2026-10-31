@@ -1,8 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { seedUsers } from "../scripts/seed.mjs";
-
-const ADMIN_PASSWORD = "test-admin-password";
-const AGENT_PASSWORD = "test-agent-password";
+import { seedTestUsers, TEST_PASSWORDS } from "./helpers";
 
 let ipCounter = 0;
 /** Each test signs in from its own address so the in-memory rate limit never leaks between tests. */
@@ -34,15 +32,12 @@ async function getMe(cookie?: string) {
 }
 
 beforeAll(async () => {
-  await seedUsers(process.env.DATABASE_URL!, {
-    adminPassword: ADMIN_PASSWORD,
-    agentPassword: AGENT_PASSWORD,
-  });
+  await seedTestUsers();
 });
 
 describe("sign-in", () => {
   it("signs an agent in and the session cookie identifies them on later requests", async () => {
-    const res = await signIn("alice@sift.local", AGENT_PASSWORD);
+    const res = await signIn("alice@sift.local", TEST_PASSWORDS.alice);
 
     expect(res.status).toBe(200);
     const setCookie = res.headers.get("set-cookie") ?? "";
@@ -56,7 +51,7 @@ describe("sign-in", () => {
   });
 
   it("signs the admin in with the admin role", async () => {
-    const res = await signIn("Admin@Sift.local", ADMIN_PASSWORD);
+    const res = await signIn("Admin@Sift.local", TEST_PASSWORDS.admin);
 
     expect(res.status).toBe(200);
     const me = await getMe(cookieFrom(res));
@@ -71,14 +66,14 @@ describe("sign-in", () => {
   });
 
   it("rejects an unknown email with the same response as a wrong password", async () => {
-    const res = await signIn("nobody@sift.local", AGENT_PASSWORD);
+    const res = await signIn("nobody@sift.local", TEST_PASSWORDS.alice);
 
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Incorrect email or password" });
   });
 
   it("does not accept one role's password for another role's account", async () => {
-    const res = await signIn("admin@sift.local", AGENT_PASSWORD);
+    const res = await signIn("admin@sift.local", TEST_PASSWORDS.alice);
 
     expect(res.status).toBe(401);
   });
@@ -90,9 +85,36 @@ describe("sign-in", () => {
   });
 });
 
+describe("per-user seed passwords", () => {
+  it("gives every account its own password, not shared with any other account", async () => {
+    for (const [name, password] of Object.entries(TEST_PASSWORDS)) {
+      expect((await signIn(`${name}@sift.local`, password)).status, name).toBe(200);
+    }
+    expect((await signIn("ben@sift.local", TEST_PASSWORDS.alice)).status).toBe(401);
+    expect((await signIn("chloe@sift.local", TEST_PASSWORDS.dev)).status).toBe(401);
+  });
+
+  it("re-seeding with a changed password updates the existing user's hash", async () => {
+    try {
+      await seedUsers(process.env.DATABASE_URL!, { ...TEST_PASSWORDS, ben: "rotated-ben-password" });
+
+      expect((await signIn("ben@sift.local", "rotated-ben-password")).status).toBe(200);
+      expect((await signIn("ben@sift.local", TEST_PASSWORDS.ben)).status).toBe(401);
+      expect((await signIn("alice@sift.local", TEST_PASSWORDS.alice)).status).toBe(200);
+    } finally {
+      await seedTestUsers();
+    }
+  });
+
+  it("refuses to seed when any account's password is missing, naming its variable", async () => {
+    const { chloe: _omitted, ...rest } = TEST_PASSWORDS;
+    await expect(seedUsers(process.env.DATABASE_URL!, rest)).rejects.toThrow(/SEED_PASSWORD_CHLOE/);
+  });
+});
+
 describe("sign-out", () => {
   it("expires the session cookie and sends the browser to the sign-in page", async () => {
-    const cookie = cookieFrom(await signIn("alice@sift.local", AGENT_PASSWORD));
+    const cookie = cookieFrom(await signIn("alice@sift.local", TEST_PASSWORDS.alice));
     const { POST } = await import("@/app/api/auth/sign-out/route");
 
     const res = await POST(
@@ -115,7 +137,7 @@ describe("sign-in rate limit", () => {
       expect((await signIn("dev@sift.local", "wrong", ip)).status).toBe(401);
     }
 
-    const blocked = await signIn("dev@sift.local", AGENT_PASSWORD, ip);
+    const blocked = await signIn("dev@sift.local", TEST_PASSWORDS.dev, ip);
 
     expect(blocked.status).toBe(429);
     expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
@@ -126,7 +148,7 @@ describe("sign-in rate limit", () => {
     const attacker = freshIp();
     for (let i = 0; i < 6; i++) await signIn("dev@sift.local", "wrong", attacker);
 
-    const res = await signIn("dev@sift.local", AGENT_PASSWORD, freshIp());
+    const res = await signIn("dev@sift.local", TEST_PASSWORDS.dev, freshIp());
 
     expect(res.status).toBe(200);
   });
@@ -134,11 +156,11 @@ describe("sign-in rate limit", () => {
   it("clears the failure count after a successful sign-in", async () => {
     const ip = freshIp();
     for (let i = 0; i < 4; i++) await signIn("dev@sift.local", "wrong", ip);
-    expect((await signIn("dev@sift.local", AGENT_PASSWORD, ip)).status).toBe(200);
+    expect((await signIn("dev@sift.local", TEST_PASSWORDS.dev, ip)).status).toBe(200);
 
     for (let i = 0; i < 4; i++) await signIn("dev@sift.local", "wrong", ip);
 
-    expect((await signIn("dev@sift.local", AGENT_PASSWORD, ip)).status).toBe(200);
+    expect((await signIn("dev@sift.local", TEST_PASSWORDS.dev, ip)).status).toBe(200);
   });
 });
 
@@ -150,7 +172,7 @@ describe("protected routes", () => {
   });
 
   it("rejects a forged or tampered session cookie", async () => {
-    const good = cookieFrom(await signIn("alice@sift.local", AGENT_PASSWORD));
+    const good = cookieFrom(await signIn("alice@sift.local", TEST_PASSWORDS.alice));
     const tampered = good.slice(0, -3) + (good.endsWith("aaa") ? "bbb" : "aaa");
 
     expect((await getMe(tampered)).status).toBe(401);
@@ -159,8 +181,8 @@ describe("protected routes", () => {
 
   it("requireAdmin returns 403 for an agent and the user for an admin", async () => {
     const { requireAdmin } = await import("@/lib/auth");
-    const agentCookie = cookieFrom(await signIn("ben@sift.local", AGENT_PASSWORD));
-    const adminCookie = cookieFrom(await signIn("admin@sift.local", ADMIN_PASSWORD));
+    const agentCookie = cookieFrom(await signIn("ben@sift.local", TEST_PASSWORDS.ben));
+    const adminCookie = cookieFrom(await signIn("admin@sift.local", TEST_PASSWORDS.admin));
     const req = (cookie?: string) =>
       new Request("http://localhost/api/anything", { headers: cookie ? { cookie } : {} });
 
@@ -196,7 +218,7 @@ describe("proxy (runs before every page and API route)", () => {
   });
 
   it("lets the health check, webhook and sign-in through without a session", async () => {
-    for (const path of ["/api/health", "/api/webhook", "/api/webhooks/email", "/sign-in", "/api/auth/sign-in"]) {
+    for (const path of ["/api/health", "/api/webhook", "/sign-in", "/api/auth/sign-in"]) {
       expect(passesThrough(await throughProxy(path)), path).toBe(true);
     }
   });
@@ -204,10 +226,13 @@ describe("proxy (runs before every page and API route)", () => {
   it("does not treat look-alike paths as public", async () => {
     expect((await throughProxy("/api/healthz")).status).toBe(401);
     expect((await throughProxy("/api/webhookish")).status).toBe(401);
+    // There is no /api/webhooks route, so nothing under it is public.
+    expect((await throughProxy("/api/webhooks")).status).toBe(401);
+    expect((await throughProxy("/api/webhooks/email")).status).toBe(401);
   });
 
   it("lets signed-in requests through", async () => {
-    const cookie = cookieFrom(await signIn("chloe@sift.local", AGENT_PASSWORD));
+    const cookie = cookieFrom(await signIn("chloe@sift.local", TEST_PASSWORDS.chloe));
 
     expect(passesThrough(await throughProxy("/api/tickets", cookie))).toBe(true);
     expect(passesThrough(await throughProxy("/", cookie))).toBe(true);

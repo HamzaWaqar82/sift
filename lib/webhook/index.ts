@@ -54,23 +54,17 @@ export const inboundEmailSchema = z.object({
   }),
   subject: z.string().trim().min(1, "subject is required").max(500),
   body: z.string().trim().min(1, "body is required").max(50_000),
-  received_at: z.iso.datetime({ offset: true, message: "received_at must be an ISO 8601 date-time" }),
+  /** Accepted (and checked) for compatibility, but not used: tickets are ordered by server receive time. */
+  received_at: z.iso.datetime({ offset: true, message: "received_at must be an ISO 8601 date-time" }).optional(),
   message_id: z.string().trim().min(1, "message_id is required").max(500),
 });
 
 export type InboundEmail = z.infer<typeof inboundEmailSchema>;
 
-/** { "from.email": "first message", ... }; issues on the whole payload are keyed "payload". */
-export function payloadErrors(error: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path.length ? issue.path.join(".") : "payload";
-    out[key] ??= issue.message;
-  }
-  return out;
-}
-
-/** Maps a validated inbound email to a new webhook ticket. */
+/**
+ * Maps a validated inbound email to a new webhook ticket. The ticket's createdAt is the server's
+ * receive time; the sender's received_at is untrusted and never decides list order.
+ */
 export function toNewTicket(email: InboundEmail): NewTicket {
   return {
     customerEmail: email.from.email,
@@ -79,6 +73,5 @@ export function toNewTicket(email: InboundEmail): NewTicket {
     body: email.body,
     source: "webhook",
     externalMessageId: email.message_id,
-    createdAt: new Date(email.received_at),
   };
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { createTicket, InvalidCursorError, listTickets } from "@/lib/tickets";
-import { fieldErrors, listQuerySchema, ticketFormSchema } from "@/lib/tickets/schema";
+import { listQuerySchema, ticketFormSchema } from "@/lib/tickets/schema";
+import { fieldErrors } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 

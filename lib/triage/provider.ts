@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import { MAX_OUTPUT_TOKENS, triageModelName } from "./config";
 import { TRIAGE_CATEGORIES, TRIAGE_JSON_SCHEMA, TRIAGE_URGENCIES } from "./schema";
 
-export type TriageArticle = { id: string; title: string; body: string };
+import type { HelpArticle } from "@/lib/db/schema";
 
 /**
  * Everything the model sees. The ticket text is exactly what leaves the app, so any redaction
@@ -13,7 +13,7 @@ export type TriageArticle = { id: string; title: string; body: string };
 export type TriageInput = {
   subject: string;
   body: string;
-  articles: TriageArticle[];
+  articles: HelpArticle[];
 };
 
 /** The provider's raw text (unvalidated) and the model that produced it. Throws on provider failure. */
@@ -26,7 +26,7 @@ function neutralise(text: string): string {
   return text.replace(/<\/?\s*customer_ticket\s*>/gi, "[removed tag]");
 }
 
-export function buildSystemInstruction(articles: TriageArticle[]): string {
+export function buildSystemInstruction(articles: HelpArticle[]): string {
   const list = articles.map((a) => `### id: ${a.id}\nTitle: ${a.title}\n${a.body}`).join("\n\n");
   return [
     "You triage customer support emails for a software company and draft a reply for a human agent to review.",

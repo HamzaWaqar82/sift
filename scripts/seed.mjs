@@ -1,32 +1,39 @@
 // Seeds the staff accounts (4 agents + 1 admin) and the sample tickets (samples/emails.json). There is no sign-up; this is the only way
 // users are created. Idempotent: re-running updates names, roles and password hashes, so
-// changing SEED_*_PASSWORD in the environment and re-running rotates the passwords.
+// changing a SEED_PASSWORD_<NAME> value in the environment and re-running rotates that password.
 // Run by the `migrate` Compose service after migrations, by `npm run db:seed`, and by tests.
 import bcrypt from "bcryptjs";
 import postgres from "postgres";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
+// Each account has its own password, from its own environment variable (`passwordEnv`).
 export const SEED_USERS = [
-  { email: "admin@sift.local", name: "Morgan Admin", role: "admin" },
-  { email: "alice@sift.local", name: "Alice Agent", role: "agent" },
-  { email: "ben@sift.local", name: "Ben Agent", role: "agent" },
-  { email: "chloe@sift.local", name: "Chloe Agent", role: "agent" },
-  { email: "dev@sift.local", name: "Dev Agent", role: "agent" },
+  { key: "admin", email: "admin@sift.local", name: "Morgan Admin", role: "admin", passwordEnv: "SEED_PASSWORD_ADMIN" },
+  { key: "alice", email: "alice@sift.local", name: "Alice Agent", role: "agent", passwordEnv: "SEED_PASSWORD_ALICE" },
+  { key: "ben", email: "ben@sift.local", name: "Ben Agent", role: "agent", passwordEnv: "SEED_PASSWORD_BEN" },
+  { key: "chloe", email: "chloe@sift.local", name: "Chloe Agent", role: "agent", passwordEnv: "SEED_PASSWORD_CHLOE" },
+  { key: "dev", email: "dev@sift.local", name: "Dev Agent", role: "agent", passwordEnv: "SEED_PASSWORD_DEV" },
 ];
 
 const BCRYPT_COST = 10;
 
-export async function seedUsers(url, { adminPassword, agentPassword }) {
-  if (!adminPassword || !agentPassword) {
-    throw new Error("SEED_ADMIN_PASSWORD and SEED_AGENT_PASSWORD must both be set");
-  }
-  const adminHash = await bcrypt.hash(adminPassword, BCRYPT_COST);
-  const agentHash = await bcrypt.hash(agentPassword, BCRYPT_COST);
+/** { admin, alice, ... } passwords read from each account's SEED_PASSWORD_<NAME> variable. */
+export function passwordsFromEnv(env = process.env) {
+  return Object.fromEntries(SEED_USERS.map((u) => [u.key, env[u.passwordEnv]]));
+}
+
+/**
+ * Upserts the staff accounts. `passwords` is keyed by account key (admin, alice, ben, chloe,
+ * dev). Existing users get their hash replaced, so a changed password takes effect on re-seed.
+ */
+export async function seedUsers(url, passwords) {
+  const missing = SEED_USERS.filter((u) => !passwords[u.key]).map((u) => u.passwordEnv);
+  if (missing.length) throw new Error(`Seed passwords not set: ${missing.join(", ")}`);
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   try {
     for (const u of SEED_USERS) {
-      const hash = u.role === "admin" ? adminHash : agentHash;
+      const hash = await bcrypt.hash(passwords[u.key], BCRYPT_COST);
       await sql`
         insert into users (email, name, role, password_hash)
         values (${u.email}, ${u.name}, ${u.role}, ${hash})
@@ -93,10 +100,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error("DATABASE_URL is not set");
     process.exit(1);
   }
-  seedUsers(url, {
-    adminPassword: process.env.SEED_ADMIN_PASSWORD,
-    agentPassword: process.env.SEED_AGENT_PASSWORD,
-  })
+  seedUsers(url, passwordsFromEnv())
     .then(() => console.log(`seeded ${SEED_USERS.length} users`))
     .then(() => seedSampleTickets(url))
     .then((n) => console.log(`seeded ${n} new sample tickets`))

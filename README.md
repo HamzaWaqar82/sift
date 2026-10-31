@@ -9,7 +9,7 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Deployable skeleton: Next.js app, Postgres, a one-off `migrate` Compose service that must complete before the app starts.
 - `GET /api/health` returns `{"status":"ok","db":"up"}` (200) or `{"status":"error","db":"down"}` (503).
 - Production Compose file with Caddy serving HTTPS on an sslip.io hostname.
-- Sign-in with email and password for four seeded agents and one admin (`admin@sift.local`; agents `alice@`, `ben@`, `chloe@`, `dev@sift.local`). Passwords are bcrypt-hashed from `SEED_ADMIN_PASSWORD` / `SEED_AGENT_PASSWORD` by the seed step that runs after migrations. The session is a signed (HS256, `SESSION_SECRET`), httpOnly, SameSite=Lax cookie valid for 7 days; sign-out clears it.
+- Sign-in with email and password for four seeded agents and one admin (`admin@sift.local`; agents `alice@`, `ben@`, `chloe@`, `dev@sift.local`). Each account has its own password (`SEED_PASSWORD_ADMIN`, `SEED_PASSWORD_ALICE`, `SEED_PASSWORD_BEN`, `SEED_PASSWORD_CHLOE`, `SEED_PASSWORD_DEV`), bcrypt-hashed by the seed step that runs after migrations; changing a value and redeploying updates that user's password. The session is a signed (HS256, `SESSION_SECRET`), httpOnly, SameSite=Lax cookie valid for 7 days; sign-out clears it.
 - Every page and API requires sign-in except `/api/health`, the inbound-email webhook and the sign-in endpoints (pages redirect to `/sign-in`, APIs return 401). Route handlers enforce roles on the server with `requireUser` / `requireAdmin` (403 for the wrong role).
 - Failed sign-ins are limited per client address in memory: after 5 failures in 15 minutes that address gets 429 until the window ends.
 - Ticket list (`/`, `GET /api/tickets`): newest first, 20 per page, filter by status (open, replied, closed). The filter and an opaque cursor live in the URL (`/?status=open&cursor=...`); changing the filter restarts from page one; going back uses browser history. Keyset paging on `(created_at, id)` means tickets arriving between pages never cause a duplicate or a skip. Each row shows subject, customer, status, assignee, source and age.
@@ -28,7 +28,7 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Daily AI cap: at most `AI_DAILY_CAP` (default 50) provider calls per UTC day, counted in `ai_usage`. Every provider call counts (first triage, retry after an error, regenerate); cached results do not. At the cap `POST /api/tickets/:id/triage` returns **429** `{"error": "The daily AI limit (N triage calls) has been reached. Write the reply manually; AI triage is available again tomorrow (UTC).", "code": "ai_daily_cap_reached"}` without calling the provider or storing anything; the panel shows that message and replying works as normal. The count resets at 00:00 UTC.
 - Redaction: email addresses and phone numbers (digit runs of 9+ digits with spaces, dots, dashes, parentheses or a leading `+`) are replaced with `[email removed]` / `[phone removed]` in the subject and body before they are sent to the provider (`lib/triage/redact.ts`). The stored ticket is unchanged. Dates, amounts and short order numbers are kept.
 - Admin regenerate: `POST /api/tickets/:id/triage` with `{"force": true}` makes a new call even over a valid result and the new result replaces it. Admin only: an agent gets 403 and nothing is called. The "Regenerate (admin)" button is shown only to admins. Agents can still retry after a failed triage (plain `POST`, no body). A malformed body returns 400.
-- Ticket list shows category and urgency badges for tickets whose latest triage is valid ("Triage failed" or "Not triaged yet" otherwise).
+- Ticket list shows category and urgency badges from the ticket's latest valid triage ("Triage failed" if every attempt failed, "Not triaged yet" otherwise). A failed regenerate never replaces the last valid result: draft, article and badges all keep using it.
 - Data handling: on a **free-tier Gemini key, Google may use the prompts (ticket text) to improve its products**. Redaction reduces what is shared but does not remove it (names, account details and free text still go out). Production should use a paid (billing-enabled) key, whose prompts are not used that way.
 
 ## What was left out
@@ -62,7 +62,7 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 }
 ```
 
-  `from.name` is optional; everything else is required (`subject` up to 500 chars, `body` up to 50,000, `received_at` ISO 8601 with offset, used as the ticket's creation time). `message_id` is the idempotency key.
+  `from.name` and `received_at` are optional; everything else is required (`subject` up to 500 chars, `body` up to 50,000). `received_at`, if sent, must be ISO 8601 with offset but is ignored: the ticket's creation time (and list order) is when Sift received the webhook. `message_id` is the idempotency key.
 - Responses (JSON):
   - `201 {ticket, created: true}`: new ticket, source `webhook`. Every new message id creates a new ticket (no threading).
   - `200 {ticket, created: false}`: this message id was already received; the existing ticket is returned unchanged.
@@ -103,8 +103,8 @@ The UI hides the control from agents; this shows the server refuses them anyway.
 
 ```sh
 BASE=https://sift-43-204-61-13.sslip.io   # or http://localhost:3000
-AGENT_PASSWORD='...'                      # SEED_AGENT_PASSWORD (local default: see compose.yaml)
-ADMIN_PASSWORD='...'                      # SEED_ADMIN_PASSWORD
+AGENT_PASSWORD='...'                      # SEED_PASSWORD_ALICE (local default: see compose.yaml)
+ADMIN_PASSWORD='...'                      # SEED_PASSWORD_ADMIN
 
 # Sign in as an agent; the session cookie lands in agent.jar
 curl -s -c agent.jar -H 'content-type: application/json' \
@@ -137,7 +137,7 @@ Open http://localhost:3000 and check http://localhost:3000/api/health. No `.env`
 
 Every variable is documented in `.env.example`. The real `.env` is gitignored; never commit it.
 
-Sign in with a seeded account (see "What was built"). With no `.env`, the local passwords are the dev defaults in `compose.yaml`. Running outside Docker: `npm run db:migrate && npm run db:seed` (needs `DATABASE_URL`, `SEED_ADMIN_PASSWORD`, `SEED_AGENT_PASSWORD`), then `npm run dev` with `SESSION_SECRET` set.
+Sign in with a seeded account (see "What was built"). With no `.env`, the local passwords are the dev defaults in `compose.yaml`. Running outside Docker: `npm run db:migrate && npm run db:seed` (needs `DATABASE_URL` and the five `SEED_PASSWORD_*` values), then `npm run dev` with `SESSION_SECRET` set.
 
 ### Running tests
 
@@ -165,7 +165,7 @@ One-time server setup: run `./scripts/aws-deploy-wizard.sh` from the repo root. 
 
 1. Launch an EC2 instance (e.g. Ubuntu, t3.small), attach an Elastic IP, and open inbound ports 22, 80 and 443 in its security group.
 2. Install Docker Engine and the Compose plugin; run `sudo systemctl enable --now docker` so containers come back after a reboot (all long-running services use `restart: unless-stopped`).
-3. `git clone` this repository, then create `.env` by hand from `.env.example`: strong `POSTGRES_PASSWORD`, `WEBHOOK_SECRET`, `SESSION_SECRET`, seed passwords, the real `GEMINI_API_KEY`, and `PUBLIC_HOSTNAME` built from the Elastic IP. `compose.prod.yaml` refuses to start if a required value is missing. Production sign-in passwords come only from this server-side `.env` (`SEED_ADMIN_PASSWORD`, `SEED_AGENT_PASSWORD`); they are hashed into the database on each deploy and never stored in the repository.
+3. `git clone` this repository, then create `.env` by hand from `.env.example`: strong `POSTGRES_PASSWORD`, `WEBHOOK_SECRET`, `SESSION_SECRET`, seed passwords, the real `GEMINI_API_KEY`, and `PUBLIC_HOSTNAME` built from the Elastic IP. `compose.prod.yaml` refuses to start if a required value is missing. Production sign-in passwords come only from this server-side `.env` (`SEED_PASSWORD_ADMIN`, `SEED_PASSWORD_ALICE`, `SEED_PASSWORD_BEN`, `SEED_PASSWORD_CHLOE`, `SEED_PASSWORD_DEV`, one per account); they are hashed into the database on each deploy and never stored in the repository.
 
 Deploy (first time and every update), on the server:
 

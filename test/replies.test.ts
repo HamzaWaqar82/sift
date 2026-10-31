@@ -66,14 +66,15 @@ async function ticketStatus(ticketId: number) {
   return (await res.json()).ticket.status;
 }
 
-async function addTriage(ticketId: number, draft: string | null) {
-  if (draft === null) {
-    await sql`insert into triage_results (ticket_id, error, raw_output, model)
-              values (${ticketId}, 'invalid shape', '{"oops":1}', 'test-model')`;
-  } else {
-    await sql`insert into triage_results (ticket_id, category, urgency, draft, model)
-              values (${ticketId}, 'technical', 'high', ${draft}, 'test-model')`;
-  }
+/** Stores a valid triage with `draft` (or a failed one for null) and returns its id. */
+async function addTriage(ticketId: number, draft: string | null): Promise<number> {
+  const [row] =
+    draft === null
+      ? await sql`insert into triage_results (ticket_id, error, raw_output, model)
+                  values (${ticketId}, 'invalid shape', '{"oops":1}', 'test-model') returning id`
+      : await sql`insert into triage_results (ticket_id, category, urgency, draft, model)
+                  values (${ticketId}, 'technical', 'high', ${draft}, 'test-model') returning id`;
+  return row.id;
 }
 
 describe("sending a reply", () => {
@@ -103,9 +104,13 @@ describe("sending a reply", () => {
 
   it("records the stored AI draft and marks an unchanged send as unedited", async () => {
     const id = await newTicket();
-    await addTriage(id, "Sorry about the export. Please retry.");
+    const draftTriageId = await addTriage(id, "Sorry about the export. Please retry.");
 
-    const res = await sendReply(id, { body: "Sorry about the export. Please retry.", idempotencyKey: newKey() });
+    const res = await sendReply(id, {
+      body: "Sorry about the export. Please retry.",
+      idempotencyKey: newKey(),
+      draftTriageId,
+    });
 
     expect(res.status).toBe(201);
     const { reply } = await res.json();
@@ -114,13 +119,14 @@ describe("sending a reply", () => {
 
   it("marks a changed draft as edited and ignores any client-supplied draft", async () => {
     const id = await newTicket();
-    await addTriage(id, "Sorry about the export. Please retry.");
+    const draftTriageId = await addTriage(id, "Sorry about the export. Please retry.");
 
     const res = await sendReply(id, {
       body: "Sorry about the export. We fixed it.",
       aiDraft: "Sorry about the export. We fixed it.",
       edited: false,
       idempotencyKey: newKey(),
+      draftTriageId,
     });
 
     const { reply } = await res.json();

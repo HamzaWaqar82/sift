@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTicket } from "@/lib/tickets";
 import { parseTicketId } from "@/lib/tickets/schema";
-import { SourceLabel, StatusBadge, timeAgo } from "../../_components/ticket-bits";
+import { SourceLabel, StatusBadge, timeAgo } from "../../_components/ticket-labels";
 import { CloseTicketButton } from "./close-button";
 import { ReassignControl } from "./reassign-control";
 import { TicketReplies } from "./replies";

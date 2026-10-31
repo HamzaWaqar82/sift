@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createTicket } from "@/lib/tickets";
+import { fieldErrors } from "@/lib/validation";
 import {
   inboundEmailSchema,
-  payloadErrors,
   readBodyWithLimit,
   toNewTicket,
   WEBHOOK_MAX_BYTES,
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const parsed = inboundEmailSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid email payload", fields: payloadErrors(parsed.error) },
+      { error: "Invalid email payload", fields: fieldErrors(parsed.error, "payload") },
       { status: 400 },
     );
   }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { InvalidCursorError, listTickets, type TicketListItem } from "@/lib/tickets";
 import { listQuerySchema, TICKET_STATUSES } from "@/lib/tickets/schema";
-import { SourceLabel, StatusBadge, timeAgo, TriageMarker } from "./_components/ticket-bits";
+import { SourceLabel, StatusBadge, timeAgo, TriageMarker } from "./_components/ticket-labels";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
