@@ -10,6 +10,25 @@ import { ViewTabs } from "./_components/view-tabs";
 export const dynamic = "force-dynamic";
 
 /** Signed-in shell: every page in this group requires a session. */
+/** Jet-age speed stripe: three white dashes then a jet red bar, along the band's top edge. */
+function SpeedStripe() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      data-speed-stripe
+      viewBox="0 0 340 6"
+      preserveAspectRatio="none"
+      className="pointer-events-none absolute right-0 top-0 z-10 block h-1.5 w-[46%] md:w-[34%]"
+    >
+      <polygon points="5,0 15,0 11,6 1,6" fill="#ffffff" />
+      <polygon points="23,0 33,0 29,6 19,6" fill="#ffffff" />
+      <polygon points="41,0 51,0 47,6 37,6" fill="#ffffff" />
+      <polygon points="59,0 340,0 340,6 55,6" fill="#d7262d" />
+    </svg>
+  );
+}
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requirePageUser();
   const initials = user.name
@@ -28,12 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         Skip to content
       </a>
       <header className="band relative z-30 bg-ink text-white md:sticky md:top-0 md:h-14">
-        <div aria-hidden="true" className="speed-stripe pointer-events-none absolute right-0 top-0 h-1.5 w-[46%] md:w-[34%]">
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
+        <SpeedStripe />
         <div className="flex flex-wrap items-end gap-x-6 gap-y-2 px-4 pt-2.5 lg:px-6">
           <Link href="/" className="order-1 mb-2.5 shrink-0 rounded-sm" aria-label="Sift, ticket inbox">
             <Wordmark tone="band" />

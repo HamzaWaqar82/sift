@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useRef, useState } from "react";
-import { Bookmark, BookmarkPlus, CircleAlert, Ellipsis, Pin } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Bookmark, BookmarkPlus, ChevronRight, CircleAlert, Ellipsis, Pin } from "lucide-react";
 import { LABELS, PRESETS, sameState, viewState } from "../_lib/params";
 import { useAnchoredPopover } from "./use-anchored-popover";
 
@@ -51,11 +51,35 @@ export function ViewsBar({ params, saved }: { params: Record<string, string>; sa
     ? PRESETS.find((p) => p.key === params.sv && sameState(params, p.params))
     : PRESETS.find((p) => sameState(params, p.params));
   const activeKey = savedActive ? `s${savedActive.id}` : presetActive ? `p${presetActive.key}` : null;
+  const strip = useRef<HTMLUListElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const measureEdges = useCallback(() => {
+    const el = strip.current;
+    if (!el) return;
+    setEdges({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+  }, []);
+  useEffect(() => {
+    const el = strip.current;
+    // Bring the active view into the visible part of the strip (e.g. a saved view on mobile).
+    const current = el?.querySelector<HTMLElement>("[aria-current='page']");
+    if (el && current && (current.offsetLeft + current.offsetWidth > el.clientWidth || current.offsetLeft < el.scrollLeft)) {
+      el.scrollLeft = Math.max(0, current.offsetLeft - 24);
+    }
+    measureEdges();
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measureEdges);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measureEdges, saved.length, params.sv]);
   const savedMatch = !activeKey ? saved.find((v) => sameState(params, v.params) && (v.params.view ?? "inbox") === (view ?? "inbox")) : undefined;
 
   return (
-    <nav aria-label="Saved views" className="z-20 h-11 border-b border-rule-soft bg-panel-2 md:sticky md:top-14">
-      <ul className="flex h-full items-center gap-1 overflow-x-auto px-3 lg:px-6 [scrollbar-width:thin]">
+    <nav aria-label="Saved views" className="relative z-20 h-11 border-b border-rule-soft bg-panel-2 md:sticky md:top-14">
+      <ul
+        ref={strip}
+        onScroll={measureEdges}
+        className="flex h-full items-center gap-1 overflow-x-auto px-3 lg:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {PRESETS.map((p) => (
           <li key={p.key} className="shrink-0">
             <ViewLink href={hrefFor(p.params, p.key, view)} active={activeKey === `p${p.key}`} title={describe(p.params)}>
@@ -78,6 +102,15 @@ export function ViewsBar({ params, saved }: { params: Record<string, string>; sa
           <SaveView params={params} unsaved={!activeKey && !savedMatch} count={saved.length} />
         </li>
       </ul>
+      {/* Overflow cues: a fade (and chevron) on each side that has more views to scroll to. */}
+      {edges.left && (
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-panel-2 to-transparent" />
+      )}
+      {edges.right && (
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 flex w-12 items-center justify-end bg-gradient-to-l from-panel-2 via-panel-2/90 to-transparent pr-1 text-ink-2">
+          <ChevronRight className="size-4" strokeWidth={1.5} />
+        </span>
+      )}
     </nav>
   );
 }

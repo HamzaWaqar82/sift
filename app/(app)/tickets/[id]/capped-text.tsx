@@ -14,22 +14,36 @@ export function CappedText({ text, compact = false }: { text: string; compact?: 
 
   useLayoutEffect(() => {
     const el = box.current;
-    if (el) setOverflows(el.scrollHeight > el.clientHeight + 2);
-  }, [text]);
+    if (!el) return;
+    const check = () => {
+      // Only meaningful while capped; when expanded the toggle stays so it can collapse again.
+      if (!el.classList.contains("overflow-hidden")) return;
+      setOverflows(el.scrollHeight > el.clientHeight + 2);
+    };
+    check();
+    void document.fonts?.ready.then(check);
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(check);
+    ro?.observe(el);
+    window.addEventListener("resize", check);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", check);
+    };
+  }, [text, open]);
 
   return (
     <div>
       <div
         ref={box}
         id="customer-message-text"
-        className={`relative max-w-[72ch] whitespace-pre-wrap break-words text-ink ${open ? "" : compact ? "max-h-[6rem] overflow-hidden" : "max-h-[12rem] overflow-hidden"}`}
+        className={`relative max-w-[72ch] whitespace-pre-wrap break-words text-ink ${open || !compact ? "" : "max-h-[6rem] overflow-hidden"}`}
       >
         {text}
         {!open && overflows && (
           <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-panel to-transparent" />
         )}
       </div>
-      {(overflows || open) && (
+      {overflows && (
         <button
           type="button"
           aria-expanded={open}

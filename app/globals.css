@@ -562,24 +562,6 @@
       border-width: 1px 0 0;
     }
   }
-
-  /* The jet-age speed stripe on the navy band: three white dashes then a jet red bar. */
-  .speed-stripe {
-    display: flex;
-    gap: 6px;
-    transform: skewX(-35deg);
-    transform-origin: top right;
-  }
-  .speed-stripe > span {
-    display: block;
-    height: 100%;
-    background: #fff;
-    width: 14px;
-  }
-  .speed-stripe > span:last-child {
-    flex: 1;
-    background: var(--color-jet);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

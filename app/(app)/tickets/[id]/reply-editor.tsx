@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleCheck, RotateCcw, Send } from "lucide-react";
 import { JUST_SENT_KEY } from "./sent-stamp";
 
@@ -45,6 +45,21 @@ export function ReplyEditor({
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const key = useRef<string | null>(null);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const [more, setMore] = useState(false);
+  // Overflow cue: true while the draft has text below the visible part of its box.
+  const measure = useCallback(() => {
+    const el = area.current;
+    if (el) setMore(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  }, []);
+  useEffect(() => {
+    measure();
+    const el = area.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure, text]);
   const sending = useRef(false);
 
   // A new draft (e.g. triage just ran) replaces the box only if the agent has not typed yet.
@@ -123,11 +138,15 @@ export function ReplyEditor({
         <label htmlFor={`reply-${ticketId}`} className="sr-only">
           Reply to the customer
         </label>
+        <div className="relative">
         <textarea
+          ref={area}
+          onScroll={measure}
           id={`reply-${ticketId}`}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            requestAnimationFrame(measure);
             setTouched(true);
             setSent(false);
             if (error) setError(null);
@@ -139,6 +158,15 @@ export function ReplyEditor({
           aria-describedby={`reply-${ticketId}-hint`}
           className={`block w-full ${compact ? "max-h-[13rem] min-h-[8rem]" : "max-h-[24rem] min-h-[10rem]"} resize-y overflow-y-auto rounded-t-[var(--radius-coupon)] border-0 bg-panel px-4 pb-5 pt-3 leading-relaxed text-ink [field-sizing:content] focus:shadow-[inset_0_0_0_2px_var(--color-ink)] focus:outline-none`}
         />
+          {more && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 flex h-10 items-end justify-center rounded-none bg-gradient-to-t from-panel via-panel/85 to-transparent pb-1 font-display text-2xs font-semibold uppercase tracking-[0.08em] text-ink-2"
+            >
+              More below, scroll
+            </span>
+          )}
+        </div>
         {/* The textarea scrolls inside its own box (bottom padding), so text never runs under this footer. */}
         <div className="perf" style={{ ["--perf-bg" as string]: "var(--color-ground)" }} aria-hidden="true" />
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5">
