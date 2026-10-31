@@ -16,12 +16,14 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Ticket detail (`/tickets/:id`, `GET /api/tickets/:id`) with the full customer message, status and assignee. Any agent can close a ticket (`POST /api/tickets/:id/close`).
 - New-ticket form (`/tickets/new`, `POST /api/tickets`) for phone calls and chats: customer email, optional name, subject, message; source `form`; invalid input returns per-field errors.
 - Sample data: `samples/emails.json` holds 14 realistic customer emails (billing, technical, account, feature requests, an angry/urgent one, a vague one, a prompt-injection attempt, one with a phone number and personal email). The seed step creates them as tickets, keyed on message id so re-running never duplicates. Two more in `samples/live/` are deliberately not seeded, for posting live through the webhook in the demo.
+- Inbound-email webhook (`POST /api/webhook`): a JSON email with the `x-webhook-secret` header becomes a ticket with source `webhook`. Secret compared in constant time, 64 KiB body limit, 400 with a reason for bad payloads, and re-posting a message id returns the existing ticket instead of a duplicate. Contract and demo `curl` under "Webhook (inbound email)".
 - The full data model is in one migration: `tickets`, `help_articles`, `triage_results` (every attempt; the ticket shows the latest), `replies` (with a unique idempotency key) and `ai_usage` (calls per UTC day).
 
 ## What was left out
 
 - Real email delivery of replies (SES or any provider); replies are recorded in the app only.
 - Threading follow-up emails into existing tickets; every inbound email creates a new ticket.
+- Vendor-specific inbound-email formats (SES, SendGrid, Mailgun, Postmark parse webhooks, raw MIME, attachments): the webhook accepts only this project's own JSON shape, the same one as `samples/`. A real provider would need a small adapter in front.
 - Claiming tickets and the Mine/Unassigned filter.
 - Managed database (RDS); Postgres runs in a container on the same host.
 - Auto-rollback of deploys.
@@ -29,6 +31,41 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Persistent or shared rate limiting: the sign-in limit lives in memory, so it resets on restart and would not be shared across several app instances.
 - Category and urgency in the list only for triaged tickets (deliberate trade-off): triage runs on demand, never in the background, so a ticket nobody has opened shows "Not triaged yet" instead of a category and urgency. This keeps AI spend proportional to tickets actually looked at, at the cost of not being able to sort the queue by urgency up front.
 - A Previous button and page numbers: the list pages forward with a cursor and relies on browser Back.
+
+## Webhook (inbound email)
+
+`POST /api/webhook`, public (no session) but secured by a shared secret.
+
+- Header `x-webhook-secret: <WEBHOOK_SECRET>` (dev default in `compose.yaml`: `dev-webhook-secret`). Compared in constant time. If the server has no `WEBHOOK_SECRET`, every request is refused.
+- Body: JSON, at most 64 KiB, exactly the shape of `samples/emails.json` entries:
+
+```json
+{
+  "from": { "email": "marcus.reid@hollowayfoods.com", "name": "Marcus Reid" },
+  "subject": "URGENT: data export fails every time, payroll due today",
+  "body": "Hi, ...",
+  "received_at": "2026-10-31T09:30:00Z",
+  "message_id": "<mr-live-01-export@hollowayfoods.com>"
+}
+```
+
+  `from.name` is optional; everything else is required (`subject` up to 500 chars, `body` up to 50,000, `received_at` ISO 8601 with offset, used as the ticket's creation time). `message_id` is the idempotency key.
+- Responses (JSON):
+  - `201 {ticket, created: true}`: new ticket, source `webhook`. Every new message id creates a new ticket (no threading).
+  - `200 {ticket, created: false}`: this message id was already received; the existing ticket is returned unchanged.
+  - `400 {error}`: body is not JSON; `400 {error, fields}`: payload invalid, `fields` maps each bad field (e.g. `from.email`, `message_id`) to a reason.
+  - `401 {error}`: secret header missing or wrong.
+  - `413 {error}`: body over 64 KiB (checked on the declared length and while reading).
+
+Demo: post the two unseeded live samples (from the repo root). Against the live site, `.env.deploy` holds the secret:
+
+```sh
+set -a; . ./.env.deploy; set +a   # live site; locally use WEBHOOK_SECRET=dev-webhook-secret
+SIFT_URL=https://sift-43-204-61-13.sslip.io   # or http://localhost:3000
+for f in samples/live/01-export-failing-urgent.json samples/live/02-add-team-member.json; do curl -sS -X POST "$SIFT_URL/api/webhook" -H "content-type: application/json" -H "x-webhook-secret: $WEBHOOK_SECRET" --data-binary @"$f"; echo; done
+```
+
+Running it a second time returns `200` with `"created":false` for both and adds nothing.
 
 ## Known problem and fix
 
