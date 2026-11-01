@@ -35,6 +35,7 @@ const baseShape = {
   source: z.enum(ticketSource.enumValues, { error: `source must be one of: ${ticketSource.enumValues.join(", ")}` }),
   sort: z.enum(["newest", "oldest", "updated"], { error: "sort must be one of: newest, oldest, updated" }),
   cursor: z.string().max(300, "cursor is not valid"),
+  overdue: z.literal("1", { error: 'overdue must be "1"' }).transform(() => true),
 };
 
 const listSchema = z.object({ ...baseShape, limit: limitSchema(MAX_PAGE_SIZE) }).partial();
@@ -70,7 +71,15 @@ function resolveAssignee(raw: string | undefined, userId: number): ListOptions["
   return id > 0 && id <= 2_147_483_647 ? id : 0;
 }
 
-type Common = { q?: string; status?: string[]; assignee?: string; category?: string[]; urgency?: string[]; source?: string };
+type Common = {
+  q?: string;
+  status?: string[];
+  assignee?: string;
+  category?: string[];
+  urgency?: string[];
+  source?: string;
+  overdue?: boolean;
+};
 
 function filters(d: Common, userId: number) {
   return {
@@ -80,6 +89,7 @@ function filters(d: Common, userId: number) {
     category: d.category as ListOptions["category"],
     urgency: d.urgency as ListOptions["urgency"],
     source: d.source as ListOptions["source"],
+    overdue: d.overdue,
   };
 }
 

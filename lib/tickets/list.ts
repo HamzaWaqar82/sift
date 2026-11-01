@@ -15,6 +15,7 @@ import {
   type TriageUrgency,
 } from "@/lib/db/schema";
 import type { TicketListItem } from "./index";
+import { overdueCondition, overdueWaitingSince } from "./overdue";
 import { isValidTriage } from "./triage-rule";
 
 export const PAGE_SIZE = 20;
@@ -34,6 +35,8 @@ export type TicketFilters = {
   category?: TriageCategory[];
   urgency?: TriageUrgency[];
   source?: TicketSource;
+  /** Only overdue tickets (see overdueCondition). */
+  overdue?: boolean;
 };
 
 export type ListOptions = TicketFilters & { sort?: TicketSort; cursor?: string; limit?: number };
@@ -88,6 +91,7 @@ function filterConditions(f: TicketFilters, latest: LatestTriage, opts: { ignore
     f.category?.length ? inArray(latest.category, f.category) : undefined,
     f.urgency?.length ? inArray(latest.urgency, f.urgency) : undefined,
     f.source ? eq(tickets.source, f.source) : undefined,
+    f.overdue ? overdueCondition() : undefined,
   ];
 }
 
@@ -151,6 +155,7 @@ export async function listTickets(opts: ListOptions = {}): Promise<{ tickets: Ti
       triageTicketId: latest.ticketId,
       category: latest.category,
       urgency: latest.urgency,
+      overdueWaitingSince: overdueWaitingSince(),
     })
     .from(tickets)
     .leftJoin(assigneeUser, eq(assigneeUser.id, tickets.assigneeId))
@@ -176,6 +181,7 @@ export async function listTickets(opts: ListOptions = {}): Promise<{ tickets: Ti
       status: r.status,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
+      overdueWaitingSince: r.overdueWaitingSince,
       assignee: r.assigneeId ? { id: r.assigneeId, name: r.assigneeName!, email: r.assigneeEmail! } : null,
       triage:
         r.triageTicketId === null
