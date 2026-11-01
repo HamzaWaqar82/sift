@@ -16,6 +16,7 @@ x-app-env: &app-env
   # Staging never emails real customers: mail is captured to the dev mailbox.
   APP_ENV: ${APP_ENV:-staging}
   MAIL_TRANSPORT: ${MAIL_TRANSPORT:-capture}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sift Support (staging)}
 
 services:
   db:
@@ -52,6 +53,19 @@ services:
       default:
       edge:
         aliases: [sift-staging-app]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Background jobs (mail queue, triage, sweeps); same image, no network exposure.
+  worker:
+    build:
+      context: .
+      target: runner
+    command: ["node", "worker.mjs"]
+    restart: unless-stopped
+    env_file: .env
+    environment: *app-env
     depends_on:
       migrate:
         condition: service_completed_successfully
