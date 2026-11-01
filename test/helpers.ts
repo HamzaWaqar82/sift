@@ -25,6 +25,19 @@ export async function resetRateLimits() {
   }
 }
 
+/**
+ * Makes a seeded user the ticket's owner (only the owner or an admin may send, triage or close).
+ * Defaults to alice, the agent most tests act as.
+ */
+export async function giveTicketTo(ticketId: number, email = "alice@sift.local") {
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
+  try {
+    await sql`update tickets set assignee_id = (select id from users where email = ${email}) where id = ${ticketId}`;
+  } finally {
+    await sql.end();
+  }
+}
+
 /** Seeds the five staff accounts with the test passwords above, active, with fresh rate limits. */
 export async function seedTestUsers() {
   await seedUsers(process.env.DATABASE_URL!, TEST_PASSWORDS);

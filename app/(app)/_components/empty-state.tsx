@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FilterX, Inbox, Mail, PenLine, TriangleAlert } from "lucide-react";
-import { hrefWith, LABELS } from "../_lib/params";
+import { DEFAULT_PRESET, hrefWith, LABELS, PRESETS, sameState } from "../_lib/params";
 
 const FILTER_KEYS = ["q", "status", "assignee", "urgency", "category", "source"] as const;
 
@@ -24,6 +24,17 @@ export function EmptyState({ params, paged }: { params: Record<string, string>; 
         <p>There are no more tickets after this page.</p>
         <Link href={hrefWith(params, { cursor: null, trail: null })} className="btn btn-sm mt-4">
           Back to the first page
+        </Link>
+      </Shell>
+    );
+  }
+  if (params.sv === "mine" && sameState(params, DEFAULT_PRESET.params)) {
+    const needsOwner = PRESETS.find((p) => p.key === "needs-owner")!;
+    return (
+      <Shell icon={<Inbox className="size-6" strokeWidth={1.5} aria-hidden="true" />} title="Nothing on your desk">
+        <p>No open tickets are assigned to you. Pick one up from the pool.</p>
+        <Link href={hrefWith(params, { ...needsOwner.params, sv: needsOwner.key })} className="btn btn-sm mt-4">
+          Needs an owner
         </Link>
       </Shell>
     );
@@ -142,7 +153,7 @@ export function InvalidQuery({ fields }: { fields: Record<string, string> }) {
           <li key={k}>{v}</li>
         ))}
       </ul>
-      <Link href="/" className="btn btn-sm mt-4">
+      <Link href="/?sv=all" className="btn btn-sm mt-4">
         Show every ticket
       </Link>
     </Shell>

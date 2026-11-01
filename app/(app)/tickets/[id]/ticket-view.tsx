@@ -3,6 +3,7 @@ import { getPageUser, isAdmin } from "@/lib/auth";
 import { listMessages } from "@/lib/messages";
 import { listNotes } from "@/lib/notes";
 import { getTicket, listAssignableUsers } from "@/lib/tickets";
+import { ticketPermission } from "@/lib/tickets/permissions";
 import { getLatestAttempt } from "@/lib/triage";
 import { LABELS } from "../../_lib/params";
 import { JustReplied } from "../../_components/live-updates";
@@ -11,6 +12,7 @@ import { WithArticlePanel } from "./article-panel";
 import { TicketActions } from "./close-button";
 import { CappedText } from "./capped-text";
 import { NoteForm } from "./note-form";
+import { ReleaseButton } from "./ownership";
 import { ReassignForm } from "./reassign-form";
 import { ReplyEditor } from "./reply-editor";
 import { Thread } from "./thread";
@@ -48,6 +50,17 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
   const triage = ticket.currentTriage;
   const initialTriage = latest ? ({ ...latest, createdAt: latest.createdAt.toISOString() } as TriageViewJson) : null;
   const headingId = `ticket-${ticket.id}-subject`;
+  // The permission matrix decides what this viewer may do; the server enforces the same rules.
+  const sendDenial = ticketPermission(user, "send", ticket);
+  const canTriage = !ticketPermission(user, "request_triage", ticket);
+  const canRelease = !ticketPermission(user, "release", ticket) && ticket.assigneeId !== null;
+  const closeNote = ticketPermission(user, "close", ticket)
+    ? ticket.assignee
+      ? `Only ${ticket.assignee.name} (the owner) or an admin can close this ticket.`
+      : "Claim this ticket first. Only its owner or an admin can close it."
+    : !admin && replyCount === 0
+      ? "Send a reply first. The owner can close a ticket once a reply has been sent."
+      : null;
 
   return (
     <article aria-labelledby={headingId} className="space-y-5" data-embedded={embedded || undefined}>
@@ -112,22 +125,29 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
                     </div>
                     <div className="flex items-center gap-2">
                       <dt className="field-label">Owner</dt>
-                      <dd>
+                      <dd className="flex flex-wrap items-center gap-1.5">
                         {admin ? (
                           <ReassignForm ticketId={ticket.id} currentAssigneeId={ticket.assignee?.id ?? null} users={users} />
                         ) : (
                           <span className={ticket.assignee ? "font-medium text-ink" : "text-ink-2"}>{ticket.assignee?.name ?? "Unassigned"}</span>
                         )}
+                        {canRelease && <ReleaseButton ticketId={ticket.id} />}
                       </dd>
                     </div>
                   </dl>
+                  {!ticket.assignee && ticket.releasedFrom && (
+                    <p className="mt-2.5 text-sm text-ink-2">
+                      Released from <span className="font-medium text-ink">{ticket.releasedFrom.name}</span>
+                      {ticket.releaseReason ? <>: {ticket.releaseReason}</> : "."}
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-3">
                   <div className={`rubber ${STATUS_RUBBER[ticket.status]}`} style={{ ["--rubber-rot" as string]: "-3deg" }}>
                     <span className="rubber-word text-lg">{ticket.status === "closed" ? "Void" : LABELS.status[ticket.status]}</span>
                     <span className="rubber-meta">{ticket.status === "closed" ? "Closed " : ""}<span className="font-mono normal-case tracking-normal">{stampTime(ticket.updatedAt)}</span></span>
                   </div>
-                  <TicketActions ticketId={ticket.id} status={ticket.status} canClose={admin || replyCount > 0} admin={admin} />
+                  <TicketActions ticketId={ticket.id} status={ticket.status} closeNote={closeNote} admin={admin} />
                 </div>
               </div>
             </div>
@@ -148,11 +168,12 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
 
       <JustReplied key={ticket.id} ticketId={ticket.id} />
 
-      <TriagePanelClient ticketId={ticket.id} initial={initialTriage} canRegenerate={admin} />
+      <TriagePanelClient ticketId={ticket.id} initial={initialTriage} canRequest={canTriage} canRegenerate={admin} />
 
       <WithArticlePanel grounding={ticket.grounding} wide={!embedded}>
         <ReplyEditor
           ticketId={ticket.id}
+          blocked={sendDenial ? (ticket.assignee ? { owner: ticket.assignee.name } : { unassigned: true }) : null}
           draft={triage && { triageId: triage.id, text: triage.draft }}
           closed={ticket.status === "closed"}
           compact={embedded}

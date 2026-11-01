@@ -1,9 +1,11 @@
 // Shared ticket queries and commands. Route handlers (form, webhook, reply, reassign) and
 // pages use these instead of writing their own SQL.
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
+import { recordAudit } from "@/lib/audit";
 import { publish } from "@/lib/events";
+import { addNote } from "@/lib/notes";
 import {
   helpArticles,
   messages,
@@ -69,6 +71,8 @@ export type CurrentTriage = {
 
 export type TicketDetail = Ticket & {
   assignee: Assignee;
+  /** Who the ticket was last released to the pool from (see `releaseReason`), or null. */
+  releasedFrom: UserRef | null;
   /** The ticket's current triage: its latest VALID result (see getCurrentTriage), or null. */
   currentTriage: CurrentTriage | null;
   /**
@@ -184,6 +188,7 @@ export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; 
 }
 
 const assigneeUser = alias(users, "assignee");
+const releasedFromUser = alias(users, "released_from");
 
 /** One ticket with its assignee and current triage, or null. */
 export async function getTicket(id: number): Promise<TicketDetail | null> {
@@ -192,9 +197,11 @@ export async function getTicket(id: number): Promise<TicketDetail | null> {
     .select({
       ticket: tickets,
       assignee: { id: assigneeUser.id, name: assigneeUser.name, email: assigneeUser.email },
+      releasedFrom: { id: releasedFromUser.id, name: releasedFromUser.name, email: releasedFromUser.email },
     })
     .from(tickets)
     .leftJoin(assigneeUser, eq(assigneeUser.id, tickets.assigneeId))
+    .leftJoin(releasedFromUser, eq(releasedFromUser.id, tickets.releasedFromUserId))
     .where(eq(tickets.id, id))
     .limit(1);
   if (!row) return null;
@@ -203,6 +210,7 @@ export async function getTicket(id: number): Promise<TicketDetail | null> {
   return {
     ...row.ticket,
     assignee: row.assignee?.id ? row.assignee : null,
+    releasedFrom: row.releasedFrom?.id ? row.releasedFrom : null,
     currentTriage,
     grounding: currentTriage ? { article: currentTriage.article } : null,
   };
@@ -267,13 +275,72 @@ export async function assignTicket(
   }
   const [row] = await db
     .update(tickets)
-    .set({ assigneeId, updatedAt: sql`now()` })
+    .set({ assigneeId, assignedBy: assigneeId === null ? null : "admin", updatedAt: sql`now()` })
     .where(eq(tickets.id, id))
     .returning({ id: tickets.id });
   if (!row) return { ok: false, reason: "ticket-not-found" };
   await publish(
     assigneeId === null ? { type: "ticket.released", ticketId: id } : { type: "ticket.assigned", ticketId: id, assigneeId },
   );
+  return { ok: true, ticket: (await getTicket(id))! };
+}
+
+export type ClaimResult =
+  | { ok: true; ticket: TicketDetail }
+  | { ok: false; reason: "not-found" }
+  | { ok: false; reason: "already_claimed"; owner: UserRef };
+
+/**
+ * Takes an unowned ticket. A single conditional update, so of two concurrent claims exactly one
+ * changes a row; the other learns who won. Claiming a ticket you already own changes nothing.
+ */
+export async function claimTicket(id: number, userId: number): Promise<ClaimResult> {
+  const [claimed] = await getDb()
+    .update(tickets)
+    .set({ assigneeId: userId, assignedBy: "claim", updatedAt: sql`now()` })
+    .where(and(eq(tickets.id, id), isNull(tickets.assigneeId)))
+    .returning({ id: tickets.id });
+  if (claimed) {
+    await recordAudit({ actorId: userId, action: "ticket_claimed", ticketId: id, targetUserId: userId });
+    await publish({ type: "ticket.assigned", ticketId: id, assigneeId: userId });
+  }
+  const ticket = await getTicket(id);
+  if (!ticket) return { ok: false, reason: "not-found" };
+  if (claimed || ticket.assigneeId === userId) return { ok: true, ticket };
+  // Released again between our update and the read: try once more rather than report a phantom owner.
+  return ticket.assignee ? { ok: false, reason: "already_claimed", owner: ticket.assignee } : claimTicket(id, userId);
+}
+
+/**
+ * Returns an owned ticket to the pool, recording who it was released from and the optional
+ * reason. Callers check the permission first; `expectedOwnerId` makes the release fail
+ * ("changed") if ownership moved since that check. A reason is also posted as an internal note.
+ */
+export async function releaseTicket(
+  id: number,
+  opts: { actorId: number; expectedOwnerId: number; reason: string | null },
+): Promise<{ ok: true; ticket: TicketDetail } | { ok: false; reason: "changed" }> {
+  const [row] = await getDb()
+    .update(tickets)
+    .set({
+      assigneeId: null,
+      assignedBy: null,
+      releasedFromUserId: opts.expectedOwnerId,
+      releaseReason: opts.reason,
+      updatedAt: sql`now()`,
+    })
+    .where(and(eq(tickets.id, id), eq(tickets.assigneeId, opts.expectedOwnerId)))
+    .returning({ id: tickets.id });
+  if (!row) return { ok: false, reason: "changed" };
+  await recordAudit({
+    actorId: opts.actorId,
+    action: "ticket_released",
+    ticketId: id,
+    targetUserId: opts.expectedOwnerId,
+    metadata: opts.reason ? { reason: opts.reason } : undefined,
+  });
+  if (opts.reason) await addNote(id, opts.actorId, `Released to the pool: ${opts.reason}`);
+  await publish({ type: "ticket.released", ticketId: id });
   return { ok: true, ticket: (await getTicket(id))! };
 }
 

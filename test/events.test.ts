@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { subscribe, type SiftEvent } from "@/lib/events";
-import { seedTestUsers, signInAs } from "./helpers";
+import { giveTicketTo, seedTestUsers, signInAs } from "./helpers";
 
 const SECRET = "test-webhook-secret";
 process.env.WEBHOOK_SECRET = SECRET;
@@ -92,6 +92,7 @@ describe("event bus", () => {
 
   it("publishes message.created naming the replier, and the status change", async () => {
     const id = await newTicketId();
+    await giveTicketTo(id);
     const { POST } = await import("@/app/api/tickets/[id]/replies/route");
     const res = await POST(
       new Request(`http://localhost/api/tickets/${id}/replies`, {

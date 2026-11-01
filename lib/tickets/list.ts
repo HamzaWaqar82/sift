@@ -22,7 +22,8 @@ export const PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 export const SEARCH_MAX_LENGTH = 100;
 
-export type TicketSort = "newest" | "oldest" | "updated";
+/** `overdue`: overdue tickets first, then newest (the *Needs an owner* view). */
+export type TicketSort = "newest" | "oldest" | "updated" | "overdue";
 
 export type TicketFilters = {
   /** Case-insensitive substring over subject, body, customer name and customer email. */
@@ -99,19 +100,24 @@ const SORTS = {
   newest: { column: tickets.createdAt, dir: "desc" },
   oldest: { column: tickets.createdAt, dir: "asc" },
   updated: { column: tickets.updatedAt, dir: "desc" },
+  overdue: { column: tickets.createdAt, dir: "desc" },
 } as const;
 
-/** Opaque keyset cursor: [sort, sort-key timestamp, id] of the last row on the page. */
-function encodeCursor(sort: TicketSort, key: Date, id: number): string {
-  return Buffer.from(JSON.stringify([sort, key.toISOString(), id])).toString("base64url");
+/** The `overdue` sort's leading key. Never null, so it is safe in a keyset row comparison. */
+const isOverdue = () => sql<boolean>`coalesce((${overdueCondition()}), false)`;
+
+/** Opaque keyset cursor: [sort, sort-key timestamp, id, overdue?] of the last row on the page. */
+function encodeCursor(sort: TicketSort, key: Date, id: number, overdue: boolean): string {
+  return Buffer.from(JSON.stringify([sort, key.toISOString(), id, ...(sort === "overdue" ? [overdue] : [])])).toString("base64url");
 }
 
-function decodeCursor(cursor: string, sort: TicketSort): { key: Date; id: number } {
+function decodeCursor(cursor: string, sort: TicketSort): { key: Date; id: number; overdue: boolean } {
   try {
-    const [cursorSort, iso, id] = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+    const [cursorSort, iso, id, overdue = false] = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
     const key = new Date(iso);
     if (
       cursorSort !== sort ||
+      typeof overdue !== "boolean" ||
       typeof iso !== "string" ||
       Number.isNaN(key.getTime()) ||
       !Number.isInteger(id) ||
@@ -120,7 +126,7 @@ function decodeCursor(cursor: string, sort: TicketSort): { key: Date; id: number
     ) {
       throw new Error();
     }
-    return { key, id };
+    return { key, id, overdue };
   } catch {
     throw new InvalidCursorError();
   }
@@ -163,12 +169,18 @@ export async function listTickets(opts: ListOptions = {}): Promise<{ tickets: Ti
     .where(
       and(
         ...filterConditions(opts, latest),
-        after
-          ? sql`(${column}, ${tickets.id}) ${sql.raw(dir === "desc" ? "<" : ">")} (${after.key.toISOString()}::timestamptz, ${after.id})`
-          : undefined,
+        after && sort === "overdue"
+          ? sql`(${isOverdue()}, ${column}, ${tickets.id}) < (${after.overdue}, ${after.key.toISOString()}::timestamptz, ${after.id})`
+          : after
+            ? sql`(${column}, ${tickets.id}) ${sql.raw(dir === "desc" ? "<" : ">")} (${after.key.toISOString()}::timestamptz, ${after.id})`
+            : undefined,
       ),
     )
-    .orderBy(dir === "desc" ? desc(column) : asc(column), dir === "desc" ? desc(tickets.id) : asc(tickets.id))
+    .orderBy(
+      ...(sort === "overdue" ? [desc(isOverdue())] : []),
+      dir === "desc" ? desc(column) : asc(column),
+      dir === "desc" ? desc(tickets.id) : asc(tickets.id),
+    )
     .limit(limit + 1);
 
   const page = rows.slice(0, limit).map(
@@ -193,7 +205,7 @@ export async function listTickets(opts: ListOptions = {}): Promise<{ tickets: Ti
   );
   const last = page.at(-1);
   const nextCursor =
-    rows.length > limit && last ? encodeCursor(sort, sort === "updated" ? last.updatedAt : last.createdAt, last.id) : null;
+    rows.length > limit && last ? encodeCursor(sort, sort === "updated" ? last.updatedAt : last.createdAt, last.id, last.overdueWaitingSince !== null) : null;
   return { tickets: page, nextCursor };
 }
 

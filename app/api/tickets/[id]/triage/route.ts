@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isAdmin, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { apiError, parseBody, route } from "@/lib/http";
 import { getLatestAttempt, requestTriage } from "@/lib/triage";
 import { parseTicketId } from "@/lib/tickets/schema";
 import { getTicket } from "@/lib/tickets";
 import { ticketNotFound, type TicketRouteContext } from "@/lib/tickets/http";
+import { denied, regeneratePermission, ticketPermission } from "@/lib/tickets/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +34,8 @@ export const GET = route(async (req: Request, ctx: TicketRouteContext) => {
 const triageRequestSchema = z.object({ force: z.boolean().optional() }).strict();
 
 /**
- * Request triage. Any signed-in user. Returns the current valid result (no provider call) when
- * there is one; otherwise one provider call (agents can retry after a failure this way).
+ * Request triage: the ticket's owner or an admin (403 `not_ticket_owner`, 409 `ticket_unassigned`).
+ * Returns the current valid result (no provider call) when there is one; otherwise one provider call (agents can retry after a failure this way).
  * `{"force": true}` regenerates even over a valid result: admin only (403 for agents).
  * 200 for a valid result, 502 when the provider failed or its output was rejected (body still
  * has the stored error triage), 429 when today's AI_DAILY_CAP is used up (nothing called).
@@ -49,13 +50,15 @@ export const POST = route(async (req: Request, ctx: TicketRouteContext) => {
     message: 'Body must be empty or {"force": true}.',
   });
   const force = parsed.force === true;
-  if (force && !isAdmin(user)) {
-    return apiError(403, "Only an admin can regenerate a triage.", { code: "forbidden" });
-  }
+  const regenDenial = force ? regeneratePermission(user) : null;
+  if (regenDenial) return denied(regenDenial);
 
   const id = parseTicketId((await ctx.params).id);
-  if (id === null) return ticketNotFound();
-  const outcome = await requestTriage(id, { requestedBy: user.id, force });
+  const ticket = id === null ? null : await getTicket(id);
+  if (!ticket) return ticketNotFound();
+  const denial = ticketPermission(user, "request_triage", ticket);
+  if (denial) return denied(denial);
+  const outcome = await requestTriage(ticket.id, { requestedBy: user.id, force });
   if (outcome.kind === "not_found") return ticketNotFound();
   if (outcome.kind === "cap_reached") {
     return apiError(

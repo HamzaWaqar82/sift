@@ -27,10 +27,13 @@ function when(iso: string): string {
 export function TriagePanelClient({
   ticketId,
   initial,
+  canRequest = true,
   canRegenerate = false,
 }: {
   ticketId: number;
   initial: TriageViewJson | null;
+  /** Only the owner or an admin may ask for a triage (others still see the result). */
+  canRequest?: boolean;
   canRegenerate?: boolean;
 }) {
   const router = useRouter();
@@ -106,7 +109,9 @@ export function TriagePanelClient({
           </div>
         )}
         {!triage && !pending && (
-          <p className="flex-1 text-sm text-ink-2">Not triaged yet. Triage runs only when you ask, and counts toward today&apos;s AI limit.</p>
+          <p className="flex-1 text-sm text-ink-2">{canRequest
+            ? "Not triaged yet. Triage runs only when you ask, and counts toward today\u2019s AI limit."
+            : "Not triaged yet. The ticket\u2019s owner can run triage."}</p>
         )}
         {failed && !pending && <p className="flex-1 text-sm font-medium text-jet-ink">The latest triage attempt failed.</p>}
         {pending && (
@@ -122,7 +127,7 @@ export function TriagePanelClient({
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          {!ok && (
+          {!ok && canRequest && (
             <button type="button" onClick={() => run()} disabled={pending} className="btn btn-sm btn-navy">
               <Sparkles className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
               {pending ? "Triaging…" : failed ? "Retry triage" : "Triage with AI"}

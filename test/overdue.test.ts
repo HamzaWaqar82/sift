@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { seedTestUsers, signInAs } from "./helpers";
+import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let alice: string;
@@ -24,6 +24,7 @@ async function ticket(subject: string, minutesAgo: number, status: "open" | "rep
   const { createTicket } = await import("@/lib/tickets");
   const { ticket } = await createTicket({ customerEmail: "c@example.com", subject, body: "help", source: "form" });
   await customerWrote(ticket.id, minutesAgo);
+  await giveTicketTo(ticket.id);
   await sql`update tickets set status = ${status} where id = ${ticket.id}`;
   return ticket.id;
 }
