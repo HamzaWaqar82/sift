@@ -154,11 +154,70 @@ export const savedViews = pgTable(
   (t) => [uniqueIndex("saved_views_user_name_idx").on(t.userId, t.name)],
 );
 
+export const jobStatus = pgEnum("job_status", ["queued", "running", "done", "failed"]);
+
+/**
+ * Background work for the worker service (lib/jobs). Claimed with FOR UPDATE SKIP LOCKED in
+ * order of priority (higher first), then run_at. `locked_at` marks a running claim; a claim
+ * older than the stale-lock window is recovered. Exhausted jobs stay as `failed` with the last
+ * error so admins can see them.
+ */
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind").notNull(),
+    payload: jsonb("payload").$type<unknown>().notNull().default({}),
+    priority: integer("priority").notNull().default(0),
+    runAt: tsMs("run_at").notNull().defaultNow(),
+    status: jobStatus("status").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    lockedAt: tsMs("locked_at"),
+    lastError: text("last_error"),
+    createdAt: tsMs("created_at").notNull().defaultNow(),
+    finishedAt: tsMs("finished_at"),
+  },
+  (t) => [
+    index("jobs_due_idx")
+      .on(t.priority.desc(), t.runAt, t.id)
+      .where(sql`${t.status} = 'queued'`),
+    index("jobs_running_idx").on(t.lockedAt).where(sql`${t.status} = 'running'`),
+  ],
+);
+
+/** Liveness of long-running processes; the worker upserts its row every loop. */
+export const workerHeartbeats = pgTable("worker_heartbeats", {
+  name: text("name").primaryKey(),
+  beatAt: tsMs("beat_at").notNull().defaultNow(),
+});
+
+/**
+ * Mail kept by the `capture` transport instead of being delivered (dev and staging), shown at
+ * /dev/mailbox. `raw` is the full RFC 5322 message exactly as it would have been sent.
+ */
+export const devMailbox = pgTable(
+  "dev_mailbox",
+  {
+    id: serial("id").primaryKey(),
+    messageId: text("message_id").notNull(),
+    from: text("from").notNull(),
+    to: text("to").notNull(),
+    subject: text("subject").notNull(),
+    text: text("text").notNull(),
+    html: text("html"),
+    raw: text("raw").notNull(),
+    capturedAt: tsMs("captured_at").notNull().defaultNow(),
+  },
+  (t) => [index("dev_mailbox_captured_idx").on(t.capturedAt.desc(), t.id.desc())],
+);
+
 export type UserRole =(typeof userRole.enumValues)[number];
 export type TicketSource = (typeof ticketSource.enumValues)[number];
 export type TicketStatus = (typeof ticketStatus.enumValues)[number];
 export type TriageCategory = (typeof triageCategory.enumValues)[number];
 export type TriageUrgency = (typeof triageUrgency.enumValues)[number];
+export type JobStatus = (typeof jobStatus.enumValues)[number];
 
 /** A staff user as shown next to tickets and replies (assignee, reply sender, assignee picker). */
 export type UserRef = { id: number; name: string; email: string };

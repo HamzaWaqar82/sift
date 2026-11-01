@@ -29,6 +29,13 @@
       "when": 1793440743023,
       "tag": "0003_saved_views",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793522930693,
+      "tag": "0004_jobs_and_dev_mailbox",
+      "breakpoints": true
     }
   ]
 }

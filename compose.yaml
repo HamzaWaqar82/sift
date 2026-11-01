@@ -15,6 +15,10 @@ x-app-env: &app-env
   SEED_PASSWORD_BEN: ${SEED_PASSWORD_BEN:-ben-dev-password}
   SEED_PASSWORD_CHLOE: ${SEED_PASSWORD_CHLOE:-chloe-dev-password}
   SEED_PASSWORD_DEV: ${SEED_PASSWORD_DEV:-dev-dev-password}
+  # capture: mail is stored and shown at /dev/mailbox instead of being delivered.
+  MAIL_TRANSPORT: ${MAIL_TRANSPORT:-capture}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sift Support}
+  APP_ENV: ${APP_ENV:-development}
 
 services:
   db:
@@ -50,6 +54,17 @@ services:
     environment: *app-env
     ports:
       - "${APP_HOST_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Background jobs (and later the IMAP reader). Same image as the app, single instance.
+  worker:
+    build:
+      context: .
+      target: runner
+    command: ["node", "worker.mjs"]
+    environment: *app-env
     depends_on:
       migrate:
         condition: service_completed_successfully
