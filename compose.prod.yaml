@@ -49,6 +49,11 @@ services:
       target: runner
     restart: unless-stopped
     environment: *app-env
+    networks:
+      default:
+        # Unique name for Caddy's upstream: the bare service name `app` is also an alias of the
+        # staging app on the shared sift-edge network, so `app:3000` could resolve to staging.
+        aliases: [sift-prod-app]
     depends_on:
       migrate:
         condition: service_completed_successfully
