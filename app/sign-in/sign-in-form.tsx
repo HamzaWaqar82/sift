@@ -21,7 +21,7 @@ export function SignInForm() {
     setProblem(null);
     const form = new FormData(e.currentTarget);
     try {
-      const res = await fetch("/api/auth/sign-in", {
+      const res = await fetch("/api/auth/sign-in/email", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
@@ -34,7 +34,7 @@ export function SignInForm() {
       if (res.status === 429) {
         setProblem({
           kind: "rate",
-          message: `Too many failed attempts from this network. ${retryText(Number(res.headers.get("retry-after")))}`,
+          message: `Too many failed attempts. ${retryText(Number(res.headers.get("retry-after")))}`,
         });
       } else {
         setProblem({ kind: "error", message: body.error ?? "Sign-in failed. Check your details and try again." });
