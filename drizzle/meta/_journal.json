@@ -36,6 +36,13 @@
       "when": 1793522758429,
       "tag": "0004_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793524952181,
+      "tag": "0005_internal_notes",
+      "breakpoints": true
     }
   ]
 }
