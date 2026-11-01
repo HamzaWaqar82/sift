@@ -33,7 +33,7 @@ const baseShape = {
   category: csv(triageCategory.enumValues, "category"),
   urgency: csv(triageUrgency.enumValues, "urgency"),
   source: z.enum(ticketSource.enumValues, { error: `source must be one of: ${ticketSource.enumValues.join(", ")}` }),
-  sort: z.enum(["newest", "oldest", "updated"], { error: "sort must be one of: newest, oldest, updated" }),
+  sort: z.enum(["newest", "oldest", "updated", "overdue"], { error: "sort must be one of: newest, oldest, updated, overdue" }),
   cursor: z.string().max(300, "cursor is not valid"),
   overdue: z.literal("1", { error: 'overdue must be "1"' }).transform(() => true),
 };

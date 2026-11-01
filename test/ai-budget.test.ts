@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
-import { runTriageJobs, seedTestUsers, signInAs } from "./helpers";
+import { giveTicketTo, runTriageJobs, seedTestUsers, signInAs } from "./helpers";
 
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
 import { runTriageModel } from "@/lib/triage/provider";
@@ -50,6 +50,7 @@ async function newTicket() {
     body: "I was charged twice this month.",
     source: "form",
   });
+  await giveTicketTo(ticket.id); // only the owner (alice) may request triage
   return ticket.id;
 }
 

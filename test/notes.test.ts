@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
-import { seedTestUsers, signInAs, triageViaApi } from "./helpers";
+import { giveTicketTo, seedTestUsers, signInAs, triageViaApi } from "./helpers";
 
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
 import { runTriageModel } from "@/lib/triage/provider";
@@ -27,6 +27,7 @@ beforeEach(async () => {
   ticketId = (
     await createTicket({ customerEmail: "c@example.com", subject: "Charged twice", body: "Please refund.", source: "form" })
   ).ticket.id;
+  await giveTicketTo(ticketId);
 });
 afterAll(async () => {
   await sql.end();

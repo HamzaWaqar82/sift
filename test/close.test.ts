@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { seedTestUsers, signInAs } from "./helpers";
+import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let agent: string;
@@ -18,6 +18,7 @@ beforeEach(async () => {
   ticketId = (
     await createTicket({ customerEmail: "c@example.com", subject: "S", body: "B", source: "form" })
   ).ticket.id;
+  await giveTicketTo(ticketId);
 });
 afterAll(async () => {
   await sql.end();

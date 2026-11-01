@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { seedTestUsers, signInAs } from "./helpers";
+import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let agent: string;
@@ -200,16 +200,16 @@ describe("createTicket (shared by form and webhook)", () => {
 });
 
 describe("ticket detail and close", () => {
-  it("any agent can close a ticket, even one assigned to someone else", async () => {
+  it("the owner can close their ticket once a reply is sent", async () => {
     const [id] = await insertTickets(1);
-    await sql`update tickets set assignee_id = (select id from users where email = 'ben@sift.local') where id = ${id}`;
+    await giveTicketTo(id);
 
-    await sql`insert into replies (ticket_id, final_body, sent_by, edited, idempotency_key) values (${id}, 'Done', (select id from users where email = 'ben@sift.local'), true, ${`k-${id}-close-test`})`;
+    await sql`insert into replies (ticket_id, final_body, sent_by, edited, idempotency_key) values (${id}, 'Done', (select id from users where email = 'alice@sift.local'), true, ${`k-${id}-close-test`})`;
     const res = await closeTicket(id);
 
     expect(res.status).toBe(200);
     const detail = await (await getTicket(id)).json();
-    expect(detail.ticket).toMatchObject({ status: "closed", assignee: { name: "Ben Agent" } });
+    expect(detail.ticket).toMatchObject({ status: "closed", assignee: { email: "alice@sift.local" } });
     const open = await (await listTickets("?status=open")).json();
     expect(open.tickets).toEqual([]);
   });

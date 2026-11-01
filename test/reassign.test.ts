@@ -127,16 +127,19 @@ describe("reassign", () => {
     expect((await detail(ticket.id)).assignee).toBeNull();
   });
 
-  it("does not restrict other agents: a non-assignee can still work the ticket", async () => {
+  it("hands the ticket over: the new owner can work it, the previous one cannot", async () => {
     const ticket = await createTicket();
+    await assign(ticket.id, { assigneeId: await userId("alice@sift.local") }, admin);
     await assign(ticket.id, { assigneeId: await userId("ben@sift.local") }, admin);
+    expect((await sql`select assigned_by from tickets where id = ${ticket.id}`)[0].assigned_by).toBe("admin");
 
     await sql`insert into replies (ticket_id, final_body, sent_by, edited, idempotency_key) values (${ticket.id}, 'Done', ${await userId("ben@sift.local")}, true, ${`k-${ticket.id}-reassign-test`})`;
     const { POST } = await import("@/app/api/tickets/[id]/close/route");
-    const res = await POST(
-      new Request(`http://localhost/api/tickets/${ticket.id}/close`, { method: "POST", headers: { cookie: agent } }),
-      { params: Promise.resolve({ id: String(ticket.id) }) },
-    );
-    expect(res.status).toBe(200);
+    const close = (cookie: string) =>
+      POST(new Request(`http://localhost/api/tickets/${ticket.id}/close`, { method: "POST", headers: { cookie } }), {
+        params: Promise.resolve({ id: String(ticket.id) }),
+      });
+    expect((await close(agent)).status).toBe(403);
+    expect((await close(await signInAs("ben@sift.local"))).status).toBe(200);
   });
 });

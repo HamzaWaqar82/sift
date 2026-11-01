@@ -1,5 +1,5 @@
 {
-  "id": "01841fef-9b54-40f9-a66a-0eb055cc5618",
+  "id": "9c5c3c2b-e14e-4b5f-947f-e538b7d3523a",
   "prevId": "3213e376-85b2-41be-a2d6-6f1db2b92142",
   "version": "7",
   "dialect": "postgresql",
@@ -139,99 +139,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.ai_calls": {
-      "name": "ai_calls",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "lane": {
-          "name": "lane",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ticket_id": {
-          "name": "ticket_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "model": {
-          "name": "model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "ai_call_outcome",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "detail": {
-          "name": "detail",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "ai_calls_started_at_idx": {
-          "name": "ai_calls_started_at_idx",
-          "columns": [
-            {
-              "expression": "started_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "ai_calls_ticket_id_tickets_id_fk": {
-          "name": "ai_calls_ticket_id_tickets_id_fk",
-          "tableFrom": "ai_calls",
-          "tableTo": "tickets",
-          "columnsFrom": [
-            "ticket_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1300,59 +1207,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.ticket_triage": {
-      "name": "ticket_triage",
-      "schema": "",
-      "columns": {
-        "ticket_id": {
-          "name": "ticket_id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "state": {
-          "name": "state",
-          "type": "triage_state",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "retry_at": {
-          "name": "retry_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "ticket_triage_ticket_id_tickets_id_fk": {
-          "name": "ticket_triage_ticket_id_tickets_id_fk",
-          "tableFrom": "ticket_triage",
-          "tableTo": "tickets",
-          "columnsFrom": [
-            "ticket_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.tickets": {
       "name": "tickets",
       "schema": "",
@@ -1439,6 +1293,25 @@
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "assigned_by": {
+          "name": "assigned_by",
+          "type": "ticket_assigned_by",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "released_from_user_id": {
+          "name": "released_from_user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "release_reason": {
+          "name": "release_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1498,6 +1371,19 @@
           "tableTo": "users",
           "columnsFrom": [
             "assignee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "tickets_released_from_user_id_users_id_fk": {
+          "name": "tickets_released_from_user_id_users_id_fk",
+          "tableFrom": "tickets",
+          "tableTo": "users",
+          "columnsFrom": [
+            "released_from_user_id"
           ],
           "columnsTo": [
             "id"
@@ -1847,17 +1733,6 @@
     }
   },
   "enums": {
-    "public.ai_call_outcome": {
-      "name": "ai_call_outcome",
-      "schema": "public",
-      "values": [
-        "pending",
-        "ok",
-        "invalid",
-        "rate_limited",
-        "error"
-      ]
-    },
     "public.job_status": {
       "name": "job_status",
       "schema": "public",
@@ -1887,6 +1762,16 @@
         "bounced"
       ]
     },
+    "public.ticket_assigned_by": {
+      "name": "ticket_assigned_by",
+      "schema": "public",
+      "values": [
+        "auto",
+        "admin",
+        "claim",
+        "system"
+      ]
+    },
     "public.ticket_source": {
       "name": "ticket_source",
       "schema": "public",
@@ -1913,18 +1798,6 @@
         "account",
         "feature_request",
         "other"
-      ]
-    },
-    "public.triage_state": {
-      "name": "triage_state",
-      "schema": "public",
-      "values": [
-        "queued",
-        "running",
-        "done",
-        "waiting_rate_limit",
-        "daily_cap_reached",
-        "failed"
       ]
     },
     "public.triage_urgency": {

@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
-import { runTriageJobs, seedTestUsers, signInAs } from "./helpers";
+import { giveTicketTo, runTriageJobs, seedTestUsers, signInAs } from "./helpers";
 
 // Seam 2: the single provider function is the only thing faked. Real Gemini is never called.
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
@@ -35,6 +35,7 @@ afterAll(async () => {
 async function newTicket(subject = "Charged twice", body = "I was charged twice this month, please refund one.") {
   const { createTicket } = await import("@/lib/tickets");
   const { ticket } = await createTicket({ customerEmail: "maria@example.com", subject, body, source: "form" });
+  await giveTicketTo(ticket.id);
   return ticket.id;
 }
 
@@ -106,7 +107,7 @@ describe("daily AI cap", () => {
     const id = await newTicket();
     await postTriage(id);
 
-    const again = await postTriage(id, await signInAs("ben@sift.local"));
+    const again = await postTriage(id);
 
     expect(again.status).toBe(200);
     expect((await again.json()).cached).toBe(true);
