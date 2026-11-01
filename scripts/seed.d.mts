@@ -11,7 +11,7 @@ export const SEED_USERS: ReadonlyArray<{
 export function passwordsFromEnv(env?: Record<string, string | undefined>): Partial<Record<SeedUserKey, string>>;
 /** Upserts the staff accounts; throws naming the variables of any missing password. */
 export function seedUsers(url: string, passwords: Partial<Record<SeedUserKey, string | undefined>>): Promise<void>;
-/** Seeds samples/emails.json as webhook tickets (idempotent on message_id). Returns how many were new. */
-export function seedSampleTickets(url: string): Promise<number>;
+/** Seeds samples/emails.json as webhook tickets aged relative to `now` (idempotent on message_id). Returns how many were new. */
+export function seedSampleTickets(url: string, now?: Date): Promise<number>;
 /** Upserts samples/help-articles.json into help_articles. Returns how many articles. */
 export function seedHelpArticles(url: string): Promise<number>;

@@ -40,8 +40,15 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1793524128024,
-      "tag": "0005_jobs_and_dev_mailbox",
+      "when": 1793524952181,
+      "tag": "0005_internal_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793544046191,
+      "tag": "0006_jobs_and_dev_mailbox",
       "breakpoints": true
     }
   ]

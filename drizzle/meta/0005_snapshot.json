@@ -1,5 +1,5 @@
 {
-  "id": "4e7e6951-cb46-464c-84ac-ebeebe468335",
+  "id": "2b7e484d-0f85-4bf5-8cb8-4c0ea9e13749",
   "prevId": "a0c5ad7b-4e83-43fa-81ee-cc1069f72c02",
   "version": "7",
   "dialect": "postgresql",
@@ -23,96 +23,6 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.dev_mailbox": {
-      "name": "dev_mailbox",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "message_id": {
-          "name": "message_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "from": {
-          "name": "from",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "to": {
-          "name": "to",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "subject": {
-          "name": "subject",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "text": {
-          "name": "text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "html": {
-          "name": "html",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "captured_at": {
-          "name": "captured_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "dev_mailbox_captured_idx": {
-          "name": "dev_mailbox_captured_idx",
-          "columns": [
-            {
-              "expression": "captured_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -158,8 +68,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.jobs": {
-      "name": "jobs",
+    "public.internal_notes": {
+      "name": "internal_notes",
       "schema": "",
       "columns": {
         "id": {
@@ -168,66 +78,23 @@
           "primaryKey": true,
           "notNull": true
         },
-        "kind": {
-          "name": "kind",
-          "type": "text",
+        "ticket_id": {
+          "name": "ticket_id",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "payload": {
-          "name": "payload",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "priority": {
-          "name": "priority",
+        "author_id": {
+          "name": "author_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": 0
+          "notNull": true
         },
-        "run_at": {
-          "name": "run_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "status": {
-          "name": "status",
-          "type": "job_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'queued'"
-        },
-        "attempts": {
-          "name": "attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "max_attempts": {
-          "name": "max_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 5
-        },
-        "locked_at": {
-          "name": "locked_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_error": {
-          "name": "last_error",
+        "body": {
+          "name": "body",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -235,26 +102,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
-        "jobs_due_idx": {
-          "name": "jobs_due_idx",
+        "internal_notes_ticket_idx": {
+          "name": "internal_notes_ticket_idx",
           "columns": [
             {
-              "expression": "priority",
+              "expression": "ticket_id",
               "isExpression": false,
-              "asc": false,
+              "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "run_at",
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -267,29 +128,39 @@
             }
           ],
           "isUnique": false,
-          "where": "\"jobs\".\"status\" = 'queued'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "jobs_running_idx": {
-          "name": "jobs_running_idx",
-          "columns": [
-            {
-              "expression": "locked_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"jobs\".\"status\" = 'running'",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "internal_notes_ticket_id_tickets_id_fk": {
+          "name": "internal_notes_ticket_id_tickets_id_fk",
+          "tableFrom": "internal_notes",
+          "tableTo": "tickets",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "internal_notes_author_id_users_id_fk": {
+          "name": "internal_notes_author_id_users_id_fk",
+          "tableFrom": "internal_notes",
+          "tableTo": "users",
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1094,45 +965,9 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
-    "public.worker_heartbeats": {
-      "name": "worker_heartbeats",
-      "schema": "",
-      "columns": {
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "beat_at": {
-          "name": "beat_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
     }
   },
   "enums": {
-    "public.job_status": {
-      "name": "job_status",
-      "schema": "public",
-      "values": [
-        "queued",
-        "running",
-        "done",
-        "failed"
-      ]
-    },
     "public.message_direction": {
       "name": "message_direction",
       "schema": "public",

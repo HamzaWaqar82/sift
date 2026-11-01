@@ -179,6 +179,27 @@ export const messages = pgTable(
   ],
 );
 
+/**
+ * Staff-only notes on a ticket. Deliberately a separate table from `messages`: the conversation
+ * readers that feed AI prompts and outbound mail never see notes, and a note never touches
+ * ticket ownership, status or the overdue clock.
+ */
+export const internalNotes = pgTable(
+  "internal_notes",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    authorId: integer("author_id")
+      .notNull()
+      .references(() => users.id),
+    body: text("body").notNull(),
+    createdAt: tsMs("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("internal_notes_ticket_idx").on(t.ticketId, t.createdAt, t.id)],
+);
+
 /** Number of AI provider calls per UTC day, checked against AI_DAILY_CAP. */
 export const aiUsage = pgTable("ai_usage", {
   day: date("day").primaryKey(),

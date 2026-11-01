@@ -72,11 +72,12 @@ All endpoints are JSON and need a session cookie, except `/api/health`, `/api/we
 | `category` | `billing`, `technical`, `account`, `feature_request`, `other` (comma list) | Taken from the ticket's current (latest valid) triage. Untriaged tickets never match. |
 | `urgency` | `low`, `medium`, `high` (comma list) | Same as `category`. |
 | `source` | `webhook`, `form` | |
+| `overdue` | `1` | Only overdue tickets: not closed, and the customer's latest message has had no later sent reply for at least `OVERDUE_HOURS` (default 24). Also accepted by the board, summary and saved views. |
 | `sort` | `newest` (default), `oldest`, `updated` | `created_at desc` / `created_at asc` / `updated_at desc`, with id as the tiebreak. |
 | `limit` | 1 to 100, default 20 | |
 | `cursor` | opaque | The previous page's `nextCursor`. Only valid with the same `sort`; a bad cursor gives 400 `invalid_cursor`. |
 
-Response: `200 {"tickets": TicketListItem[], "nextCursor": string | null}`, where `TicketListItem = {id, customerEmail, customerName, subject, source, status, createdAt, updatedAt, assignee: {id, name, email} | null, triage: {ok: true, category, urgency} | {ok: false} | null}`. Paging is keyset-based on (sort key, id), so new tickets never cause a duplicate or a skip. With `sort=updated`, a ticket that changes during paging can move, but paging never errors. Empty parameters are ignored. Invalid values give 400 `validation_failed`, with `fields` keyed by parameter name.
+Response: `200 {"tickets": TicketListItem[], "nextCursor": string | null}`, where `TicketListItem = {id, customerEmail, customerName, subject, source, status, createdAt, updatedAt, assignee: {id, name, email} | null, triage: {ok: true, category, urgency} | {ok: false} | null, overdueWaitingSince: string | null}` (`overdueWaitingSince` is when the unanswered customer message arrived, set only while the ticket is overdue). Paging is keyset-based on (sort key, id), so new tickets never cause a duplicate or a skip. With `sort=updated`, a ticket that changes during paging can move, but paging never errors. Empty parameters are ignored. Invalid values give 400 `validation_failed`, with `fields` keyed by parameter name.
 
 Search uses plain `ILIKE` (a sequential scan). That is fine at this volume (hundreds to low thousands of tickets). Past that, add a `pg_trgm` GIN index on the subject, body and customer columns.
 
@@ -106,7 +107,7 @@ Takes `q`, `assignee`, `category`, `urgency` and `source`; `status`, `sort`, `li
 
 ### Saved views (per user)
 - `GET /api/views` returns `{views}` for the signed-in user only.
-- `POST /api/views` `{name, params}` returns 201 `{view}`. `name`: 1 to 40 characters. `params`: any of `view` (inbox, table, board), `q`, `status`, `assignee`, `category`, `urgency`, `source`, `sort`, `limit` (20, 50, 100), checked like `GET /api/tickets`; defaults are dropped. **409** `name_taken` (same name, any case) or `view_limit` (20 per user).
+- `POST /api/views` `{name, params}` returns 201 `{view}`. `name`: 1 to 40 characters. `params`: any of `view` (inbox, table, board), `q`, `status`, `assignee`, `category`, `urgency`, `source`, `overdue`, `sort`, `limit` (20, 50, 100), checked like `GET /api/tickets`; defaults are dropped. **409** `name_taken` (same name, any case) or `view_limit` (20 per user).
 - `PATCH /api/views/:id` `{name}` renames; `DELETE /api/views/:id` deletes. Another user's view gives 404 `not_found`, the same as a missing one.
 - The UI pins five built-in views (All tickets, Needs reply, My open, Unassigned, High urgency) before the saved ones; the active view is `?sv=` in the URL.
 

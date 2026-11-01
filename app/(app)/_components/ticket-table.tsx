@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type { TicketListItem } from "@/lib/tickets";
 import { hrefWith } from "../_lib/params";
-import { Age, CategoryLabel, SourceLabel, StatusStamp, TicketNo, TriageMarker, UrgencyTab } from "./ticket-labels";
+import { Age, CategoryLabel, OverdueBadge, SourceLabel, StatusStamp, TicketNo, TriageMarker, UrgencyTab } from "./ticket-labels";
 
 /** Dense table view. Created sorts newest/oldest; Updated sorts by last update (the API's three sorts). */
 export function TicketTable({ tickets, params }: { tickets: TicketListItem[]; params: Record<string, string> }) {
@@ -25,7 +25,10 @@ export function TicketTable({ tickets, params }: { tickets: TicketListItem[]; pa
                 <Age date={t.createdAt} />
               </span>
             </div>
-            <p className="mt-1 truncate font-medium text-ink">{t.subject}</p>
+            <p className="mt-1 flex min-w-0 items-center gap-1.5">
+              <OverdueBadge since={t.overdueWaitingSince} />
+              <span className="min-w-0 truncate font-medium text-ink">{t.subject}</span>
+            </p>
             <div className="mt-1 flex items-center justify-between gap-2 text-sm text-ink-2">
               <span className="truncate">
                 {t.customerName ?? t.customerEmail} <span aria-hidden="true">/</span>{" "}
@@ -69,9 +72,12 @@ export function TicketTable({ tickets, params }: { tickets: TicketListItem[]; pa
                 <TicketNo id={t.id} className="text-xs" />
               </td>
               <td className="max-w-[22rem] px-3 py-2">
-                <Link href={`/tickets/${t.id}`} data-ticket-row className="block truncate font-medium text-ink hover:underline">
-                  {t.subject}
-                </Link>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <OverdueBadge since={t.overdueWaitingSince} />
+                  <Link href={`/tickets/${t.id}`} data-ticket-row className="block min-w-0 truncate font-medium text-ink hover:underline">
+                    {t.subject}
+                  </Link>
+                </span>
               </td>
               <td className="max-w-[14rem] truncate px-3 py-2 text-ink-2" title={t.customerEmail}>
                 {t.customerName ?? t.customerEmail}
