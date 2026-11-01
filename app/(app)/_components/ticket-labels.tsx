@@ -89,6 +89,32 @@ export function timeAgo(date: Date, now = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** "1d 4h", "5h", "40m": how long the customer has waited. */
+export function waitFor(since: Date, now = new Date()): string {
+  const m = Math.max(0, Math.floor((now.getTime() - since.getTime()) / 60_000));
+  const d = Math.floor(m / 1440);
+  const h = Math.floor((m % 1440) / 60);
+  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
+  return h > 0 ? `${h}h` : `${m}m`;
+}
+
+/** Orange "OVERDUE 1d 4h" chip before the subject; nothing when the ticket isn't overdue. */
+export function OverdueBadge({ since }: { since: Date | string | null }) {
+  if (!since) return null;
+  const at = new Date(since);
+  return (
+    <span
+      className="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-[2px] border border-overdue-ink bg-overdue-tint px-1 text-overdue-ink"
+      title={`Customer waiting since ${stampTime(at)}`}
+    >
+      <span className="font-display text-2xs font-semibold uppercase tracking-[0.08em]">Overdue</span>
+      <span className="font-mono text-2xs tabular-nums" suppressHydrationWarning>
+        {waitFor(at)}
+      </span>
+    </span>
+  );
+}
+
 /** "31 Oct 14:05 UTC": an unambiguous stamp time (rendered on the server, so always UTC). */
 export function stampTime(date: Date): string {
   const d = date.toLocaleString("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" });

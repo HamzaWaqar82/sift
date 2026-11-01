@@ -5,6 +5,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import {
   helpArticles,
+  messages,
   replies,
   tickets,
   triageResults,
@@ -47,7 +48,12 @@ export type TriageSummary =
 export type TicketListItem = Pick<
   Ticket,
   "id" | "customerEmail" | "customerName" | "subject" | "source" | "status" | "createdAt" | "updatedAt"
-> & { assignee: Assignee; triage: TriageSummary };
+> & {
+  assignee: Assignee;
+  triage: TriageSummary;
+  /** When the customer's unanswered message arrived, if the ticket is overdue; null otherwise. */
+  overdueWaitingSince: Date | null;
+};
 
 /** A valid triage result with the help article it cites (null: the draft is ungrounded). */
 export type CurrentTriage = {
@@ -126,24 +132,42 @@ export async function getValidTriage(ticketId: number, triageId: number): Promis
 }
 
 /**
- * Creates a ticket. Idempotent on `externalMessageId`: a repeat returns the existing ticket
- * with `created: false` and changes nothing.
+ * Creates a ticket and its first inbound message, in one transaction. Idempotent on
+ * `externalMessageId`: a repeat returns the existing ticket with `created: false` and changes nothing.
  */
 export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; created: boolean }> {
   const db = getDb();
-  const [row] = await db
-    .insert(tickets)
-    .values({
-      customerEmail: input.customerEmail,
-      customerName: input.customerName ?? null,
-      subject: input.subject,
-      body: input.body,
-      source: input.source,
-      externalMessageId: input.externalMessageId ?? null,
-      ...(input.createdAt ? { createdAt: input.createdAt, updatedAt: input.createdAt } : {}),
-    })
-    .onConflictDoNothing({ target: tickets.externalMessageId })
-    .returning();
+  const row = await db.transaction(async (tx) => {
+    const [ticket] = await tx
+      .insert(tickets)
+      .values({
+        customerEmail: input.customerEmail,
+        customerName: input.customerName ?? null,
+        subject: input.subject,
+        body: input.body,
+        source: input.source,
+        externalMessageId: input.externalMessageId ?? null,
+        ...(input.createdAt ? { createdAt: input.createdAt, updatedAt: input.createdAt } : {}),
+      })
+      .onConflictDoNothing({ target: tickets.externalMessageId })
+      .returning();
+    if (!ticket) return null;
+    await tx.insert(messages).values({
+      ticketId: ticket.id,
+      direction: "inbound",
+      fromAddress: ticket.customerEmail,
+      subject: ticket.subject,
+      bodyText: ticket.body,
+      messageId: ticket.externalMessageId,
+      occurredAt: ticket.createdAt,
+    });
+    const [withInbound] = await tx
+      .update(tickets)
+      .set({ lastInboundAt: ticket.createdAt })
+      .where(eq(tickets.id, ticket.id))
+      .returning();
+    return withInbound;
+  });
   if (row) return { ticket: row, created: true };
 
   const [existing] = await db

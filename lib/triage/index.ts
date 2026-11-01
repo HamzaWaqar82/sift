@@ -5,6 +5,7 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { helpArticles, triageResults, type TriageCategory, type TriageUrgency } from "@/lib/db/schema";
+import { latestInboundMessage } from "@/lib/messages";
 import { getTicket, getValidTriage, type CurrentTriage } from "@/lib/tickets";
 import { aiDailyCap, triageModelName } from "./config";
 import { takeDailySlot } from "./usage";
@@ -122,10 +123,12 @@ export async function requestTriage(
     .select({ id: helpArticles.id, title: helpArticles.title, body: helpArticles.body })
     .from(helpArticles)
     .orderBy(helpArticles.id);
-  // Customer emails and phone numbers never reach the provider; the stored ticket is unchanged.
+  // The customer's latest message is what the draft answers. Customer emails and phone numbers
+  // never reach the provider; the stored ticket is unchanged.
+  const latest = await latestInboundMessage(ticketId);
   const input: TriageInput = {
     subject: redactContactDetails(ticket.subject),
-    body: redactContactDetails(ticket.body),
+    body: redactContactDetails(latest?.bodyText ?? ticket.body),
     articles,
   };
 

@@ -61,20 +61,31 @@ const SAMPLE_EMAILS = new URL("../samples/emails.json", import.meta.url);
  * Seeds each sample email (webhook contract shape) as an open, unassigned webhook ticket.
  * Idempotent: keyed on the email's message_id, so re-running never duplicates or overwrites.
  * The emails in samples/live/ are deliberately NOT seeded; they are posted live in the demo.
+ * Ages are relative to the seed run (newest an hour old, the samples' spacing compressed 4x,
+ * oldest under 3 days), so a fresh install shows both waiting and overdue tickets.
  * Returns the number of tickets newly created.
  */
-export async function seedSampleTickets(url) {
+export async function seedSampleTickets(url, now = new Date()) {
   const emails = JSON.parse(await readFile(SAMPLE_EMAILS, "utf8"));
+  const newest = Math.max(...emails.map((e) => Date.parse(e.received_at)));
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   let created = 0;
   try {
-    for (const e of emails) {
+    for (const sample of emails) {
+      const receivedAt = new Date(now.getTime() - 3_600_000 - (newest - Date.parse(sample.received_at)) / 4).toISOString();
+      const e = { ...sample, received_at: receivedAt };
+      // The ticket and its first inbound message, as createTicket writes them.
       const rows = await sql`
-        insert into tickets (customer_email, customer_name, subject, body, source, external_message_id, created_at, updated_at)
-        values (${e.from.email.toLowerCase()}, ${e.from.name ?? null}, ${e.subject}, ${e.body}, 'webhook',
-                ${e.message_id}, ${e.received_at}, ${e.received_at})
-        on conflict (external_message_id) do nothing
-        returning id`;
+        with t as (
+          insert into tickets (customer_email, customer_name, subject, body, source, external_message_id, created_at, updated_at, last_inbound_at)
+          values (${e.from.email.toLowerCase()}, ${e.from.name ?? null}, ${e.subject}, ${e.body}, 'webhook',
+                  ${e.message_id}, ${e.received_at}, ${e.received_at}, ${e.received_at})
+          on conflict (external_message_id) do nothing
+          returning *
+        )
+        insert into messages (ticket_id, direction, from_address, subject, body_text, message_id, occurred_at)
+        select id, 'inbound', customer_email, subject, body, external_message_id, created_at from t
+        returning ticket_id`;
       created += rows.length;
     }
   } finally {

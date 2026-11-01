@@ -33,15 +33,22 @@
     {
       "idx": 4,
       "version": "7",
-      "when": 1793523382990,
-      "tag": "0004_better_auth",
+      "when": 1793522758429,
+      "tag": "0004_messages",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1793523393407,
-      "tag": "0005_move_password_hashes",
+      "when": 1793525020797,
+      "tag": "0005_better_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793525033356,
+      "tag": "0006_move_password_hashes",
       "breakpoints": true
     }
   ]
