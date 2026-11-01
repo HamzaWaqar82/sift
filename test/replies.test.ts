@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { seedTestUsers, signInAs } from "./helpers";
+import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let alice: string;
@@ -29,6 +29,7 @@ async function newTicket() {
     body: "My CSV export fails.",
     source: "form",
   });
+  await giveTicketTo(ticket.id);
   return ticket.id;
 }
 
@@ -191,14 +192,14 @@ describe("sending a reply", () => {
     }
   });
 
-  it("lets any agent reply to a ticket assigned to someone else", async () => {
+  it("refuses another agent's reply to a ticket Alice owns and records nothing", async () => {
     const id = await newTicket();
-    await sql`update tickets set assignee_id = (select id from users where email = 'alice@sift.local') where id = ${id}`;
 
     const res = await sendReply(id, { body: "Covering for Alice.", idempotencyKey: newKey() }, ben);
 
-    expect(res.status).toBe(201);
-    expect((await res.json()).reply.sentBy.email).toBe("ben@sift.local");
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("not_ticket_owner");
+    expect((await (await thread(id)).json()).replies).toHaveLength(0);
   });
 
   it("returns 401 when not signed in and records nothing", async () => {

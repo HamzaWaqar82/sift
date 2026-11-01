@@ -6,7 +6,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles, seedSampleTickets } from "../scripts/seed.mjs";
-import { seedTestUsers, signInAs } from "./helpers";
+import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
 
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
 import { runTriageModel } from "@/lib/triage/provider";
@@ -43,7 +43,9 @@ async function createViaForm(body: Record<string, string>) {
       body: JSON.stringify(body),
     }),
   );
-  return (await res.json()).ticket.id as number;
+  const id = (await res.json()).ticket.id as number;
+  await giveTicketTo(id);
+  return id;
 }
 
 async function postWebhook(body: unknown) {

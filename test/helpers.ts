@@ -1,3 +1,4 @@
+import postgres from "postgres";
 import { seedUsers } from "../scripts/seed.mjs";
 
 /** One password per seeded account, as in production (SEED_PASSWORD_<NAME>). */
@@ -17,6 +18,19 @@ export function passwordFor(email: string): string {
 /** Seeds the five staff accounts with the test passwords above. */
 export function seedTestUsers() {
   return seedUsers(process.env.DATABASE_URL!, TEST_PASSWORDS);
+}
+
+/**
+ * Makes a seeded user the ticket's owner (only the owner or an admin may send, triage or close).
+ * Defaults to alice, the agent most tests act as.
+ */
+export async function giveTicketTo(ticketId: number, email = "alice@sift.local") {
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
+  try {
+    await sql`update tickets set assignee_id = (select id from users where email = ${email}) where id = ${ticketId}`;
+  } finally {
+    await sql.end();
+  }
 }
 
 let ipCounter = 0;

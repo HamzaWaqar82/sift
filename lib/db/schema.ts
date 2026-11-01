@@ -31,6 +31,8 @@ export const triageCategory = pgEnum("triage_category", [
 ]);
 export const triageUrgency = pgEnum("triage_urgency", ["low", "medium", "high"]);
 export const messageDirection = pgEnum("message_direction", ["inbound", "outbound"]);
+/** How a ticket got its current owner (null while unowned or for owners set before ticket 19). */
+export const ticketAssignedBy = pgEnum("ticket_assigned_by", ["auto", "admin", "claim", "system"]);
 export const messageStatus = pgEnum("message_status", ["queued", "sending", "sent", "failed", "bounced"]);
 
 // Millisecond precision so timestamps round-trip exactly through JS Dates (cursor paging relies on it).
@@ -66,6 +68,10 @@ export const tickets = pgTable(
     lastInboundAt: tsMs("last_inbound_at"),
     /** When a reply last reached `sent`. Null until the first one. */
     lastOutboundAt: tsMs("last_outbound_at"),
+    assignedBy: ticketAssignedBy("assigned_by"),
+    /** Who the ticket was last released to the pool from, and why (kept as history after a new claim). */
+    releasedFromUserId: integer("released_from_user_id").references(() => users.id, { onDelete: "set null" }),
+    releaseReason: text("release_reason"),
   },
   (t) => [
     index("tickets_created_at_id_idx").on(t.createdAt.desc(), t.id.desc()),
@@ -233,6 +239,7 @@ export type TriageCategory = (typeof triageCategory.enumValues)[number];
 export type TriageUrgency = (typeof triageUrgency.enumValues)[number];
 export type MessageDirection = (typeof messageDirection.enumValues)[number];
 export type MessageStatus = (typeof messageStatus.enumValues)[number];
+export type TicketAssignedBy = (typeof ticketAssignedBy.enumValues)[number];
 
 /** A staff user as shown next to tickets and replies (assignee, reply sender, assignee picker). */
 export type UserRef = { id: number; name: string; email: string };
