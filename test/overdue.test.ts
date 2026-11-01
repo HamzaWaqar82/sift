@@ -89,6 +89,9 @@ describe("overdue rule", () => {
   it("is cleared by a sent reply and re-armed by the customer's next message", async () => {
     const id = await ticket("waiting", 2 * DAY);
     await reply(id);
+    expect(await overdueSubjects()).toEqual(["waiting"]); // queued, not sent yet
+    const { runDueJobs } = await import("@/lib/jobs");
+    await runDueJobs();
     expect(await overdueSubjects()).toEqual([]);
 
     // The customer writes again after the reply: the clock restarts from that message.

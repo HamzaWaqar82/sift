@@ -108,6 +108,8 @@ describe("event bus", () => {
       direction: "outbound",
       authorName: "Alice Agent",
     });
+    const { runDueJobs } = await import("@/lib/jobs");
+    await runDueJobs();
     expect(await eventOf("ticket.updated")).toEqual({ type: "ticket.updated", ticketId: id, status: "replied" });
     expect(JSON.stringify(received)).not.toContain("We are on it.");
   });

@@ -403,6 +403,16 @@ export const jobs = pgTable(
   ],
 );
 
+/**
+ * Addresses we must not mail (bounced, or added by hand). Emails are stored lowercased; sending
+ * to one is refused before anything is queued.
+ */
+export const suppressedEmails = pgTable("suppressed_emails", {
+  email: text("email").primaryKey(),
+  reason: text("reason").notNull(),
+  createdAt: tsMs("created_at").notNull().defaultNow(),
+});
+
 /** Liveness of long-running processes; the worker upserts its row every loop. */
 export const workerHeartbeats = pgTable("worker_heartbeats", {
   name: text("name").primaryKey(),
