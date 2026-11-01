@@ -189,6 +189,31 @@ A real five-person team can run Sift, with no domain, no AWS mail setup and no p
 
 - Better Auth with the Drizzle adapter on Postgres. Identity lives in Sift's own database.
 - **Spike first.** The first slice is a time-boxed spike (about 2 hours) to map Better Auth's user model onto the existing integer-id `users` table. If that doesn't work, fall back to a separate auth user table with a text id, linked one-to-one to `users`. The spike's outcome gets recorded in this spec.
+- **Identity spike outcome (ticket 03): it works; keep the integer-id `users` table.** Tested on better-auth 1.7.14 with the Drizzle adapter (`provider: "pg"`): seeded `alice@sift.local` signed in through `POST /api/auth/sign-in/email` with her existing bcrypt password, `getSession` resolved her from a database session row, and a wrong password returned 401. No separate auth user table is needed.
+  - Config knobs:
+    - `database: drizzleAdapter(db, { provider: "pg", schema: { users, account, session, verification } })` (pass the tables under these keys).
+    - `user.modelName: "users"`. Column names map through the Drizzle schema's own property names (`emailVerified` → `email_verified`), so no `user.fields` mapping is needed as long as the Drizzle properties use Better Auth's names.
+    - `user.additionalFields.role: { type: "string", required: true, input: false }`. Without it, Better Auth refuses to start ("Required columns Better Auth never writes: users.role").
+    - `advanced.database.generateId: "serial"`. This is global, so `account`, `session` and `verification` ids are `serial` too, and their `user_id` columns are `integer` references to `users.id`.
+    - `emailAndPassword: { enabled: true, disableSignUp: true, password: { hash: (pw) => bcrypt.hash(pw, 10), verify: ({ hash, password }) => bcrypt.compare(password, hash) } }`.
+    - `session: { expiresIn: 60 * 60 * 24 * 7, disableSessionRefresh: true }` gives the 7-day absolute expiry. Better Auth's cookie is already httpOnly and SameSite=Lax. Secure follows `baseURL` being https (set `advanced.useSecureCookies` to force it).
+  - Schema changes:
+    - `users` adds `email_verified boolean not null default false`, `image text` (nullable; Better Auth requires the column and refuses to start without it), and `updated_at timestamptz not null default now()`.
+    - `users.password_hash` moves into `account` (`provider_id = 'credential'`, `account_id = users.id::text`, `password` = the hash) and is then dropped. It is `NOT NULL` today, so users that Better Auth creates would fail to insert.
+    - `account`: `id serial`, `account_id`, `provider_id`, `user_id integer`, the token, expiry and scope columns, `password`, and the timestamps.
+    - `session`: `id serial`, `token` (unique), `expires_at`, `ip_address`, `user_agent`, `user_id integer`, and the timestamps.
+    - `verification`: `id serial`, `identifier`, `value`, `expires_at`, and the timestamps.
+    - Every `user_id` cascades on delete. Generate the tables with drizzle-kit, not `npx auth generate`.
+  - Gotchas for ticket 05:
+    - **Ids are strings at the Better Auth boundary.** `user.id` and `session.userId` come back as `"2"`, not `2`. The guards must `Number()` them before returning `SessionUser`.
+    - The credential lookup compares `account.account_id === user.id` as strings, so the migrated rows need `account_id = id::text` exactly.
+    - Better Auth's startup schema check fails fast when a column is missing or a column is required but never written. Every new non-null `users` column (`availability`, ...) needs a default or an `additionalFields` entry.
+    - Unknown emails already run `password.hash` (bcrypt) for equal timing, which covers the "unknown emails cost the same" requirement.
+    - Better Auth's own rate limiter is in-memory and production-only by default. Disable it (`rateLimit.enabled: false`) in favour of the `rate_limits` table, or point it at database storage.
+    - Better Auth logs a warning that `"serial"` ids skip single-use checks for SAML, DPoP and JWT assertions. Sift uses none of these.
+    - The spike sent an `origin` header matching `baseURL`, which Better Auth's origin check expects (or set `trustedOrigins`). The test helper should send it too.
+    - Keep `disableSignUp: true`. Invite acceptance creates the user itself (`email_verified = true`), then calls `auth.$context` → `internalAdapter.linkAccount`, or inserts the credential `account` row with `password.hash`.
+  - The spike code was not merged. It lives only on the local branch `spike/03-better-auth`.
 - Better Auth owns the `account`, `session` and `verification` tables. Sessions are database rows: 7-day absolute expiry, httpOnly, Secure in production, SameSite=Lax.
 - The existing route guards (`requireUser`, `requireAdmin`, `requirePageUser`) keep their call signatures but resolve against the session table. Route handlers stay one-line guard calls.
 - **Revocation** happens on deactivation, role change, email change, and "sign out everywhere".
