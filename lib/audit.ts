@@ -8,6 +8,10 @@ export type AuditAction =
   | "role_changed"
   | "user_deactivated"
   | "user_reactivated"
+  | "invite_created"
+  | "invite_resent"
+  | "invite_accepted"
+  | "invite_revoked"
   | "ticket_claimed"
   | "ticket_released";
 

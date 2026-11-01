@@ -71,6 +71,13 @@
       "when": 1793546297532,
       "tag": "0009_moaning_jubilee",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793555338451,
+      "tag": "0010_blue_korath",
+      "breakpoints": true
     }
   ]
 }
