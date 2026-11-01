@@ -7,10 +7,28 @@ export function triageModelName(): string {
   return process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
 }
 
-export const DEFAULT_AI_DAILY_CAP = 50;
+// Defaults sit just below the free tier of gemini-3.5-flash-lite (15 requests/min, 500/day).
+// Re-read the live quota in AI Studio when changing model, and set these slightly below it.
+export const DEFAULT_AI_DAILY_CAP = 450;
+export const DEFAULT_AI_RPM_LIMIT = 12;
+export const DEFAULT_AI_MANUAL_RESERVE_PCT = 20;
+
+function intFromEnv(name: string, fallback: number, max = Number.MAX_SAFE_INTEGER): number {
+  const n = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(n) && n >= 0 ? Math.min(n, max) : fallback;
+}
 
 /** Maximum provider calls per UTC day, from AI_DAILY_CAP (a non-negative integer). */
 export function aiDailyCap(): number {
-  const n = Number.parseInt(process.env.AI_DAILY_CAP ?? "", 10);
-  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_AI_DAILY_CAP;
+  return intFromEnv("AI_DAILY_CAP", DEFAULT_AI_DAILY_CAP);
+}
+
+/** Maximum provider calls in any 60-second window, from AI_RPM_LIMIT. */
+export function aiRpmLimit(): number {
+  return intFromEnv("AI_RPM_LIMIT", DEFAULT_AI_RPM_LIMIT);
+}
+
+/** Percent of the daily cap kept for manual triage; automatic triage may use the rest. */
+export function aiManualReservePct(): number {
+  return intFromEnv("AI_MANUAL_RESERVE_PCT", DEFAULT_AI_MANUAL_RESERVE_PCT, 100);
 }

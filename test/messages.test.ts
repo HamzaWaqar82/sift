@@ -6,7 +6,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles, seedSampleTickets } from "../scripts/seed.mjs";
-import { seedTestUsers, signInAs } from "./helpers";
+import { seedTestUsers, signInAs, triageViaApi } from "./helpers";
 
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
 import { runTriageModel } from "@/lib/triage/provider";
@@ -25,7 +25,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await sql`truncate tickets restart identity cascade`;
-  await sql`truncate ai_usage`;
+  await sql`truncate ai_usage, jobs`;
   provider.mockReset();
 });
 afterAll(async () => {
@@ -173,10 +173,9 @@ describe("conversation", () => {
       model: "fake-model",
     });
 
-    const { POST } = await import("@/app/api/tickets/[id]/triage/route");
-    const res = await POST(new Request(`http://localhost/api/tickets/${id}/triage`, { method: "POST", headers: { cookie: alice } }), ctx(id));
+    const res = await triageViaApi(id, alice);
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(202);
     expect(provider.mock.calls[0][0].body).toBe("Newest question about refunds.");
   });
 });

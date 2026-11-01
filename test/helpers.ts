@@ -73,3 +73,36 @@ export async function signInAs(email: string) {
   if (res.status !== 200) throw new Error(`sign-in failed for ${email}: ${res.status}`);
   return sessionCookieFrom(res);
 }
+
+/**
+ * Runs queued triage jobs the way the worker would. Jobs retried after a provider error are made
+ * due again at once (up to `rounds` passes); jobs waiting on an AI limit keep their retry time.
+ */
+export async function runTriageJobs(rounds = 5) {
+  const { runDueJobs } = await import("@/lib/jobs");
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
+  try {
+    for (let i = 0; i < rounds; i++) {
+      const summary = await runDueJobs();
+      if (summary.retried === 0) return;
+      await sql`update jobs set run_at = now() where status = 'queued' and kind like 'triage.%' and attempts > 0`;
+    }
+  } finally {
+    await sql.end();
+  }
+}
+
+/** POSTs a triage request as `cookie` (optionally `{force}`), then runs the triage job. */
+export async function triageViaApi(id: number, cookie: string, body?: unknown) {
+  const { POST } = await import("@/app/api/tickets/[id]/triage/route");
+  const res = await POST(
+    new Request(`http://localhost/api/tickets/${id}/triage`, {
+      method: "POST",
+      headers: { cookie, ...(body ? { "content-type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+    { params: Promise.resolve({ id: String(id) }) },
+  );
+  await runTriageJobs();
+  return res;
+}

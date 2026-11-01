@@ -297,6 +297,54 @@ export const aiUsage = pgTable("ai_usage", {
   calls: integer("calls").notNull().default(0),
 });
 
+export const aiCallOutcome = pgEnum("ai_call_outcome", ["pending", "ok", "invalid", "rate_limited", "error"]);
+export type AiCallOutcome = (typeof aiCallOutcome.enumValues)[number];
+/** `manual`: an agent's Triage click. `auto`: background triage of new tickets (ticket 18). */
+export type AiLane = "manual" | "auto";
+
+/**
+ * Every provider call the limiter let through (lib/triage/limiter.ts). Rows in the last minute
+ * are the per-minute window; the admin AI panel lists them. Kept when the ticket is deleted.
+ */
+export const aiCalls = pgTable(
+  "ai_calls",
+  {
+    id: serial("id").primaryKey(),
+    lane: text("lane").$type<AiLane>().notNull(),
+    ticketId: integer("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+    model: text("model").notNull(),
+    outcome: aiCallOutcome("outcome").notNull().default("pending"),
+    detail: text("detail"),
+    startedAt: tsMs("started_at").notNull(),
+    finishedAt: tsMs("finished_at"),
+  },
+  (t) => [index("ai_calls_started_at_idx").on(t.startedAt)],
+);
+
+/**
+ * Stored triage state per ticket (no row = never requested). `superseded` ("Out of date") is
+ * not stored: it is a `done` triage older than the customer's latest message (lib/triage/state.ts).
+ */
+export const triageState = pgEnum("triage_state", [
+  "queued",
+  "running",
+  "done",
+  "waiting_rate_limit",
+  "daily_cap_reached",
+  "failed",
+]);
+export type StoredTriageState = (typeof triageState.enumValues)[number];
+
+export const ticketTriage = pgTable("ticket_triage", {
+  ticketId: integer("ticket_id")
+    .primaryKey()
+    .references(() => tickets.id, { onDelete: "cascade" }),
+  state: triageState("state").notNull(),
+  /** When a waiting job runs again (waiting_rate_limit, daily_cap_reached). */
+  retryAt: tsMs("retry_at"),
+  updatedAt: tsMs("updated_at").notNull().defaultNow(),
+});
+
 /**
  * A user's saved ticket view: a name plus the list state it restores (view type, filters,
  * sort, page size). Private to its owner; at most MAX_SAVED_VIEWS per user (lib/views).
