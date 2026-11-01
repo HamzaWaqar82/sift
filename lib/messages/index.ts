@@ -17,6 +17,8 @@ export type Message = {
   occurredAt: Date;
   /** Delivery state of an outbound message; null when inbound. */
   status: MessageStatus | null;
+  /** Why the last delivery try failed (outbound only). */
+  lastError: string | null;
   aiDraft: string | null;
   edited: boolean | null;
   idempotencyKey: string | null;
@@ -36,6 +38,7 @@ export async function listMessages(ticketId: number): Promise<Message[]> {
       bodyText: messages.bodyText,
       occurredAt: messages.occurredAt,
       status: messages.status,
+      lastError: messages.lastError,
       aiDraft: messages.aiDraft,
       edited: messages.edited,
       idempotencyKey: messages.idempotencyKey,

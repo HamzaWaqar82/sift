@@ -26,12 +26,15 @@ export type EditorDraft = { triageId: number; text: string };
 export function ReplyEditor({
   ticketId,
   draft,
+  latestMessageId,
   closed = false,
   compact = false,
   blocked = null,
 }: {
   ticketId: number;
   draft: EditorDraft | null;
+  /** The newest message on screen; a send is refused (stale_ticket) if a newer one has arrived. */
+  latestMessageId: number | null;
   closed?: boolean;
   /** Not this viewer's to send: someone else owns it ("Owned by"), or nobody does (Claim). */
   blocked?: { owner: string } | { unassigned: true } | null;
@@ -48,6 +51,15 @@ export function ReplyEditor({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  // The newest message the agent had in front of them when they started typing. Live refreshes
+  // move it forward only while the box is untouched, so a reply written before a new customer
+  // message arrived is refused (stale_ticket) instead of going out unread.
+  const [seenId, setSeenId] = useState(latestMessageId);
+  const [propId, setPropId] = useState(latestMessageId);
+  if (propId !== latestMessageId) {
+    setPropId(latestMessageId);
+    if (!touched || sent) setSeenId(latestMessageId);
+  }
   const key = useRef<string | null>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const [more, setMore] = useState(false);
@@ -94,9 +106,12 @@ export function ReplyEditor({
     const res = await fetch(`/api/tickets/${ticketId}/replies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: text, idempotencyKey, draftTriageId: baseDraftId }),
+      body: JSON.stringify({ body: text, idempotencyKey, draftTriageId: baseDraftId, latestMessageId: seenId }),
     }).catch(() => null);
+    const json = await res?.json().catch(() => null);
     if (res?.ok) {
+      // Our own reply is now the newest message.
+      if (json?.message?.id) setSeenId(json.message.id);
       sessionStorage.setItem(JUST_SENT_KEY, idempotencyKey);
       key.current = null;
       setText("");
@@ -106,7 +121,8 @@ export function ReplyEditor({
       setSent(true);
       router.refresh();
     } else {
-      const json = await res?.json().catch(() => null);
+      // Stale: the new message is in the thread now; the next click sends against it.
+      if (json?.code === "stale_ticket") setSeenId(latestMessageId);
       setError(json?.fields?.body ?? json?.error ?? "Could not send the reply. Try again.");
     }
     sending.current = false;
@@ -176,7 +192,7 @@ export function ReplyEditor({
         <div className="perf" style={{ ["--perf-bg" as string]: "var(--color-ground)" }} aria-hidden="true" />
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5">
           <p className="min-w-0 text-xs text-ink-2">
-            {closed ? "Sending reopens this closed ticket. " : ""}Recorded in Sift; no email is sent.
+            {closed ? "Sending reopens this closed ticket. " : ""}Emailed to the customer.
             <span className="num ml-1.5">
               {text.length.toLocaleString("en-US")}/{MAX.toLocaleString("en-US")}
             </span>
@@ -220,7 +236,7 @@ export function ReplyEditor({
         {sent && !error && (
           <p className="flex items-center gap-1.5 text-sm text-ok-ink">
             <CircleCheck className="size-4" strokeWidth={1.5} aria-hidden="true" />
-            Reply sent and stamped in the thread.
+            Reply queued. It is stamped Sent once the mail server accepts it.
           </p>
         )}
       </div>
