@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Icon renders crisply at 16, 32 and 180 px (apple-touch) using the App Router's icon conventions
-- [ ] Matches the DESIGN.md identity
+- [x] Icon renders crisply at 16, 32 and 180 px (apple-touch) using the App Router's icon conventions
+- [x] Matches the DESIGN.md identity
