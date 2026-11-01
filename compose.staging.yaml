@@ -2,33 +2,26 @@
 # Production's Caddy reaches the app over the shared `sift-edge` network (created by
 # compose.prod.yaml) as `sift-staging-app:3000` and serves it at STAGING_HOSTNAME.
 # Usage on the server, from the staging checkout:  docker compose -f compose.staging.yaml up -d --build
-# Requires its own hand-made .env next to this file (see README "Staging").
+#
+# Every secret (DATABASE_URL, POSTGRES_*, GEMINI_API_KEY, WEBHOOK_SECRET, SESSION_SECRET,
+# APP_BASE_URL, SEED_PASSWORD_*) comes from the hand-made .env next to this file via env_file,
+# so none is named here (see README "Staging"). The app and the seed fail on first use if one is missing.
 name: sift-staging
 
 x-app-env: &app-env
   NODE_ENV: production
-  DATABASE_URL: postgres://${POSTGRES_USER:?set POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:?set POSTGRES_DB}
-  GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY}
   GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
-  AI_DAILY_CAP: ${AI_DAILY_CAP:-50}
-  WEBHOOK_SECRET: ${WEBHOOK_SECRET:?set WEBHOOK_SECRET}
-  SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET}
-  SEED_PASSWORD_ADMIN: ${SEED_PASSWORD_ADMIN:?set SEED_PASSWORD_ADMIN}
-  SEED_PASSWORD_ALICE: ${SEED_PASSWORD_ALICE:?set SEED_PASSWORD_ALICE}
-  SEED_PASSWORD_BEN: ${SEED_PASSWORD_BEN:?set SEED_PASSWORD_BEN}
-  SEED_PASSWORD_CHLOE: ${SEED_PASSWORD_CHLOE:?set SEED_PASSWORD_CHLOE}
-  SEED_PASSWORD_DEV: ${SEED_PASSWORD_DEV:?set SEED_PASSWORD_DEV}
+  AI_DAILY_CAP: ${AI_DAILY_CAP:-30}
+  OVERDUE_HOURS: ${OVERDUE_HOURS:-24}
   # Staging never emails real customers: mail is captured to the dev mailbox.
+  APP_ENV: ${APP_ENV:-staging}
   MAIL_TRANSPORT: ${MAIL_TRANSPORT:-capture}
 
 services:
   db:
     image: postgres:17-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    env_file: .env
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -41,6 +34,7 @@ services:
     build:
       context: .
       target: migrator
+    env_file: .env
     environment: *app-env
     depends_on:
       db:
@@ -52,6 +46,7 @@ services:
       context: .
       target: runner
     restart: unless-stopped
+    env_file: .env
     environment: *app-env
     networks:
       default:
