@@ -83,18 +83,17 @@ export function ReplyEditor({
       return;
     }
     sending.current = true;
-    key.current ??= newKey();
+    const idempotencyKey = (key.current ??= newKey());
     setPending(true);
     setError(null);
     setSent(false);
     const res = await fetch(`/api/tickets/${ticketId}/replies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: text, idempotencyKey: key.current, draftTriageId: baseDraftId }),
+      body: JSON.stringify({ body: text, idempotencyKey, draftTriageId: baseDraftId }),
     }).catch(() => null);
     if (res?.ok) {
-      const json = await res.json().catch(() => null);
-      if (json?.reply?.id) sessionStorage.setItem(JUST_SENT_KEY, String(json.reply.id));
+      sessionStorage.setItem(JUST_SENT_KEY, idempotencyKey);
       key.current = null;
       setText("");
       setTouched(true);
