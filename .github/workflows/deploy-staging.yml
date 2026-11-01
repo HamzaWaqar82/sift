@@ -95,6 +95,7 @@ jobs:
           SMOKE_BASE_URL: https://${{ vars.STAGING_HOSTNAME }}
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          SMOKE_WEBHOOK_SECRET: ${{ secrets.SMOKE_WEBHOOK_SECRET }}
         run: npx playwright test --project=chromium
       - uses: actions/upload-artifact@v4
         if: failure()

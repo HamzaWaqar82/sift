@@ -13,6 +13,14 @@
 
 # Staging app from the sift-staging Compose project, over the shared sift-edge network.
 {$STAGING_HOSTNAME:staging.localhost} {
-	encode gzip
-	reverse_proxy sift-staging-app:3000
+	# Live updates (SSE): no compression and flush every write, so events arrive at once.
+	handle /api/events {
+		reverse_proxy sift-staging-app:3000 {
+			flush_interval -1
+		}
+	}
+	handle {
+		encode gzip
+		reverse_proxy sift-staging-app:3000
+	}
 }
