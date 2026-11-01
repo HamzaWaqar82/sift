@@ -4,6 +4,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "d
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import {
+  messages,
   ticketStatus,
   tickets,
   triageResults,
@@ -72,7 +73,8 @@ function filterConditions(f: TicketFilters, latest: LatestTriage, opts: { ignore
     pattern
       ? or(
           ilike(tickets.subject, pattern),
-          ilike(tickets.body, pattern),
+          // Every message of the thread, inbound and outbound (the first one is the ticket body).
+          sql`exists (select 1 from ${messages} where ${messages.ticketId} = ${tickets.id} and ${messages.bodyText} ilike ${pattern})`,
           ilike(tickets.customerName, pattern),
           ilike(tickets.customerEmail, pattern),
         )
