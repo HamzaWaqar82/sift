@@ -145,6 +145,36 @@ describe("claim", () => {
   });
 });
 
+describe("Needs an owner (assignee=unassigned&sort=overdue)", () => {
+  it("lists unowned tickets with overdue ones first, across pages", async () => {
+    const { createTicket } = await import("@/lib/tickets");
+    const make = async (subject: string, waitedHours: number, owner?: "alice") => {
+      const { ticket } = await createTicket({ customerEmail: "c@example.com", subject, body: "B", source: "form" });
+      await sql`update tickets set last_inbound_at = now() - ${waitedHours} * interval '1 hour',
+        assignee_id = ${owner ? ids[owner] : null} where id = ${ticket.id}`;
+    };
+    await sql`delete from tickets`;
+    await make("old overdue", 50);
+    await make("fresh", 1);
+    await make("overdue", 30);
+    await make("owned overdue", 40, "alice");
+    await make("newest fresh", 0);
+
+    const { GET } = await import("@/app/api/tickets/route");
+    const page = async (cursor?: string) =>
+      (await GET(
+        new Request(`http://localhost/api/tickets?assignee=unassigned&sort=overdue&limit=2${cursor ? `&cursor=${cursor}` : ""}`, {
+          headers: { cookie: cookies.ben },
+        }),
+      )).json();
+    const p1 = await page();
+    const p2 = await page(p1.nextCursor);
+    const subjects = [...p1.tickets, ...p2.tickets].map((t: { subject: string }) => t.subject);
+    expect(subjects).toEqual(["overdue", "old overdue", "newest fresh", "fresh"]);
+    expect(p2.nextCursor).toBeNull();
+  });
+});
+
 describe("release", () => {
   it("returns the ticket to the pool and records who it came from", async () => {
     await own("alice");

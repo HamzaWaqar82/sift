@@ -69,6 +69,8 @@ export type CurrentTriage = {
 
 export type TicketDetail = Ticket & {
   assignee: Assignee;
+  /** Who the ticket was last released to the pool from (see `releaseReason`), or null. */
+  releasedFrom: UserRef | null;
   /** The ticket's current triage: its latest VALID result (see getCurrentTriage), or null. */
   currentTriage: CurrentTriage | null;
   /**
@@ -180,6 +182,7 @@ export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; 
 }
 
 const assigneeUser = alias(users, "assignee");
+const releasedFromUser = alias(users, "released_from");
 
 /** One ticket with its assignee and current triage, or null. */
 export async function getTicket(id: number): Promise<TicketDetail | null> {
@@ -188,9 +191,11 @@ export async function getTicket(id: number): Promise<TicketDetail | null> {
     .select({
       ticket: tickets,
       assignee: { id: assigneeUser.id, name: assigneeUser.name, email: assigneeUser.email },
+      releasedFrom: { id: releasedFromUser.id, name: releasedFromUser.name, email: releasedFromUser.email },
     })
     .from(tickets)
     .leftJoin(assigneeUser, eq(assigneeUser.id, tickets.assigneeId))
+    .leftJoin(releasedFromUser, eq(releasedFromUser.id, tickets.releasedFromUserId))
     .where(eq(tickets.id, id))
     .limit(1);
   if (!row) return null;
@@ -199,6 +204,7 @@ export async function getTicket(id: number): Promise<TicketDetail | null> {
   return {
     ...row.ticket,
     assignee: row.assignee?.id ? row.assignee : null,
+    releasedFrom: row.releasedFrom?.id ? row.releasedFrom : null,
     currentTriage,
     grounding: currentTriage ? { article: currentTriage.article } : null,
   };

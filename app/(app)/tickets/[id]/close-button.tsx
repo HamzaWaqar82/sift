@@ -6,18 +6,19 @@ import { Ban, Info, RotateCcw } from "lucide-react";
 import type { TicketStatus } from "@/lib/db/schema";
 
 /**
- * Close (VOID) or Reopen. Agents may close only after a reply has been sent (`canClose`); the
- * button says why it is unavailable instead of hiding. A 409 from the server is shown as-is.
+ * Close (VOID) or Reopen. Agents may close only a ticket they own, after a reply has been sent;
+ * `closeNote` says why closing is unavailable (the button stays, with the reason). A 403/409 from
+ * the server is shown as-is.
  */
 export function TicketActions({
   ticketId,
   status,
-  canClose,
+  closeNote,
   admin,
 }: {
   ticketId: number;
   status: TicketStatus;
-  canClose: boolean;
+  closeNote: string | null;
   admin: boolean;
 }) {
   const router = useRouter();
@@ -46,6 +47,7 @@ export function TicketActions({
   }
 
   const closed = status === "closed";
+  const canClose = closeNote === null;
   return (
     <div className="flex max-w-[16rem] flex-col items-end gap-1.5 text-right">
       {closed ? (
@@ -74,7 +76,7 @@ export function TicketActions({
               role="tooltip"
               className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 w-60 rounded-[var(--radius-control)] bg-ink px-3 py-2 text-left text-xs leading-snug text-white opacity-0 shadow-[var(--shadow-pop)] transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100"
             >
-              Send a reply first. Agents can close a ticket once a reply has been sent.
+              {closeNote}
             </span>
           )}
         </span>

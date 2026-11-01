@@ -50,7 +50,11 @@ export function hrefWith(current: Record<string, string>, changes: Record<string
     else next.set(k, v);
   }
   // Editing filters, sort or page size leaves the active saved/preset view ("sv").
-  if (!("sv" in changes) && Object.keys(changes).some((k) => (VIEW_STATE_KEYS as readonly string[]).includes(k))) next.delete("sv");
+  if (!("sv" in changes) && Object.keys(changes).some((k) => (VIEW_STATE_KEYS as readonly string[]).includes(k))) {
+    next.delete("sv");
+    // Clearing every filter means "all tickets", not the default *Mine* view a bare "/" opens.
+    if (VIEW_STATE_KEYS.every((k) => !next.get(k))) next.set("sv", "all");
+  }
   // Defaults stay out of the URL.
   if (next.get("view") === "inbox") next.delete("view");
   if (next.get("sort") === "newest") next.delete("sort");
@@ -83,17 +87,25 @@ export const LABELS = {
     other: "Other",
   },
   source: { webhook: "Email", form: "Form" },
-  sort: { newest: "Newest first", oldest: "Oldest first", updated: "Recently updated" },
+  sort: { newest: "Newest first", oldest: "Oldest first", updated: "Recently updated", overdue: "Overdue first" },
 } as const;
 
 /** Built-in views, pinned before the user's own. They keep the current view type. */
 export const PRESETS: { key: string; name: string; params: Record<string, string> }[] = [
+  { key: "mine", name: "Mine", params: { assignee: "me", status: "open,replied" } },
+  { key: "needs-owner", name: "Needs an owner", params: { assignee: "unassigned", status: "open,replied", sort: "overdue" } },
   { key: "all", name: "All tickets", params: {} },
   { key: "needs-reply", name: "Needs reply", params: { status: "open" } },
-  { key: "my-open", name: "My open", params: { assignee: "me", status: "open" } },
-  { key: "unassigned", name: "Unassigned", params: { assignee: "unassigned", status: "open" } },
   { key: "high", name: "High urgency", params: { urgency: "high", status: "open" } },
 ];
+
+/** The view a bare "/" opens: *Mine*. "All tickets" carries `sv=all`, so it is never redirected. */
+export const DEFAULT_PRESET = PRESETS[0];
+
+/** True when the URL picks no view at all (no filters, sort, page size or saved view). */
+export function isBareList(p: Record<string, string>): boolean {
+  return !p.sv && VIEW_STATE_KEYS.every((k) => !p[k]);
+}
 
 /** The list state a view would save: view type plus filters, sort and page size. */
 export function viewState(p: Record<string, string>): Record<string, string> {

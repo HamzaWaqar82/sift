@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleCheck, RotateCcw, Send } from "lucide-react";
+import { CircleCheck, Lock, RotateCcw, Send } from "lucide-react";
+import { ClaimButton } from "./ownership";
 import { JUST_SENT_KEY } from "./sent-stamp";
 
 const MAX = 20_000;
@@ -27,10 +28,13 @@ export function ReplyEditor({
   draft,
   closed = false,
   compact = false,
+  blocked = null,
 }: {
   ticketId: number;
   draft: EditorDraft | null;
   closed?: boolean;
+  /** Not this viewer's to send: someone else owns it ("Owned by"), or nobody does (Claim). */
+  blocked?: { owner: string } | { unassigned: true } | null;
   /** Inbox pane: a shorter box so the draft, article and Send fit the first viewport. */
   compact?: boolean;
 }) {
@@ -115,7 +119,7 @@ export function ReplyEditor({
       className="min-w-0"
       onSubmit={(e) => {
         e.preventDefault();
-        void send();
+        if (!blocked) void send();
       }}
     >
       <div className="tab-row pl-3">
@@ -191,10 +195,19 @@ export function ReplyEditor({
                 Restore draft
               </button>
             )}
-            <button type="submit" disabled={pending} aria-busy={pending} className="btn btn-send">
-              <Send className="size-4" strokeWidth={1.5} aria-hidden="true" />
-              {pending ? "Sending…" : "Send reply"}
-            </button>
+            {blocked && "owner" in blocked ? (
+              <p className="flex items-center gap-1.5 text-sm text-ink-2">
+                <Lock className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+                Owned by <span className="font-medium text-ink">{blocked.owner}</span>
+              </p>
+            ) : blocked ? (
+              <ClaimButton ticketId={ticketId} />
+            ) : (
+              <button type="submit" disabled={pending} aria-busy={pending} className="btn btn-send">
+                <Send className="size-4" strokeWidth={1.5} aria-hidden="true" />
+                {pending ? "Sending…" : "Send reply"}
+              </button>
+            )}
           </div>
         </div>
       </div>
