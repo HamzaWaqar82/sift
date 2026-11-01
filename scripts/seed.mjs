@@ -51,14 +51,19 @@ const SAMPLE_EMAILS = new URL("../samples/emails.json", import.meta.url);
  * Seeds each sample email (webhook contract shape) as an open, unassigned webhook ticket.
  * Idempotent: keyed on the email's message_id, so re-running never duplicates or overwrites.
  * The emails in samples/live/ are deliberately NOT seeded; they are posted live in the demo.
+ * Ages are relative to the seed run (newest an hour old, the samples' spacing compressed 4x,
+ * oldest under 3 days), so a fresh install shows both waiting and overdue tickets.
  * Returns the number of tickets newly created.
  */
-export async function seedSampleTickets(url) {
+export async function seedSampleTickets(url, now = new Date()) {
   const emails = JSON.parse(await readFile(SAMPLE_EMAILS, "utf8"));
+  const newest = Math.max(...emails.map((e) => Date.parse(e.received_at)));
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   let created = 0;
   try {
-    for (const e of emails) {
+    for (const sample of emails) {
+      const receivedAt = new Date(now.getTime() - 3_600_000 - (newest - Date.parse(sample.received_at)) / 4).toISOString();
+      const e = { ...sample, received_at: receivedAt };
       // The ticket and its first inbound message, as createTicket writes them.
       const rows = await sql`
         with t as (

@@ -7,7 +7,7 @@ export type View = (typeof VIEWS)[number];
 export const PAGE_SIZES = [20, 50, 100] as const;
 
 /** Query keys that change which tickets match; changing any of them resets paging. */
-export const FILTER_KEYS = ["q", "status", "assignee", "category", "urgency", "source"] as const;
+export const FILTER_KEYS = ["q", "status", "assignee", "category", "urgency", "source", "overdue"] as const;
 /** Keys a saved view captures besides the view type. */
 export const VIEW_STATE_KEYS = [...FILTER_KEYS, "sort", "limit"] as const;
 /** Keys that describe the page position (cursor + the trail of earlier cursors for Previous). */

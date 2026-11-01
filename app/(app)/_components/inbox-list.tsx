@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { TicketListItem } from "@/lib/tickets";
 import { hrefWith } from "../_lib/params";
-import { Age, StatusStamp, TicketNo, TriageMarker } from "./ticket-labels";
+import { Age, OverdueBadge, StatusStamp, TicketNo, TriageMarker } from "./ticket-labels";
 
 /**
  * The wallet: one small coupon per ticket. Stub at left (number + age), perforation, then the
@@ -50,7 +50,10 @@ export function InboxList({
               </div>
               <div className="min-w-0 px-3 py-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="min-w-0 truncate font-medium leading-snug text-ink">{t.subject}</p>
+                  <p className="flex min-w-0 items-center gap-1.5">
+                    <OverdueBadge since={t.overdueWaitingSince} />
+                    <span className="min-w-0 truncate font-medium leading-snug text-ink">{t.subject}</span>
+                  </p>
                   <StatusStamp status={t.status} />
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-2">

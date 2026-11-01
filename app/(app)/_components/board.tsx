@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { TicketCard } from "../_lib/cards";
 import type { TicketStatus } from "@/lib/db/schema";
 import { LABELS } from "../_lib/params";
-import { StatusStamp, TicketNo, TriageMarker, timeAgo, stampTime } from "./ticket-labels";
+import { OverdueBadge, StatusStamp, TicketNo, TriageMarker, timeAgo, stampTime } from "./ticket-labels";
 
 
 type Column = { count: number; nextCursor: string | null; tickets: TicketCard[] };
@@ -93,7 +93,14 @@ function BoardColumn({ status, initial, query }: { status: TicketStatus; initial
                       {timeAgo(new Date(t.createdAt))}
                     </time>
                   </div>
-                  <p className="line-clamp-2 px-3 pt-1 text-sm font-medium leading-snug text-ink">{t.subject}</p>
+                  <p className="line-clamp-2 px-3 pt-1 text-sm font-medium leading-snug text-ink">
+                    {t.overdueWaitingSince && (
+                      <>
+                        <OverdueBadge since={t.overdueWaitingSince} />{" "}
+                      </>
+                    )}
+                    {t.subject}
+                  </p>
                   <p className="truncate px-3 text-xs text-ink-2">
                     {t.customerName ?? t.customerEmail} <span className="text-ink-3">/</span>{" "}
                     <span className={t.assignee ? "" : "text-ink-3"}>{t.assignee?.name ?? "Unassigned"}</span>
