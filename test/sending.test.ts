@@ -2,15 +2,17 @@ import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { runDueJobs } from "@/lib/jobs";
 import { FakeMailer, setMailer } from "@/lib/mail";
-import { seedTestUsers, signInAs } from "./helpers";
+import { giveTicketTo, seedTestUsers, signInAs } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let alice: string;
+let ben: string;
 let mailer: FakeMailer;
 
 beforeAll(async () => {
   await seedTestUsers();
   alice = await signInAs("alice@sift.local");
+  ben = await signInAs("ben@sift.local");
 });
 beforeEach(async () => {
   await sql`truncate tickets, jobs, suppressed_emails restart identity cascade`;
@@ -35,6 +37,7 @@ async function inbound(messageId: string, opts: { subject?: string; email?: stri
     source: "webhook",
     externalMessageId: messageId,
   });
+  await giveTicketTo(ticket.id);
   return ticket.id;
 }
 
@@ -214,5 +217,68 @@ describe("stale composer and double sends", () => {
     expect(await outbound(id)).toHaveLength(1);
     await runDueJobs();
     expect(mailer.sent).toHaveLength(1);
+  });
+});
+
+async function retry(ticketId: number, messageId: number, cookie = alice) {
+  const { POST } = await import("@/app/api/tickets/[id]/messages/[messageId]/retry/route");
+  return POST(
+    new Request(`http://localhost/api/tickets/${ticketId}/messages/${messageId}/retry`, { method: "POST", headers: { cookie } }),
+    { params: Promise.resolve({ id: String(ticketId), messageId: String(messageId) }) },
+  );
+}
+
+async function failedReply() {
+  const id = await inbound("<in-1@example.com>");
+  await send(id);
+  const [out] = await outbound(id);
+  await sql`update messages set status = 'failed', attempts = 5, last_error = 'auth failed' where id = ${out.id}`;
+  await sql`update jobs set status = 'failed'`;
+  return { id, messageId: out.id as number };
+}
+
+describe("manual retry", () => {
+  it("requeues a failed reply, which then sends", async () => {
+    const { id, messageId } = await failedReply();
+    const res = await retry(id, messageId);
+    expect(res.status).toBe(200);
+    expect((await res.json()).message).toEqual({ id: messageId, status: "queued" });
+    await runDueJobs();
+    const [out] = await outbound(id);
+    expect(out).toMatchObject({ status: "sent", last_error: null });
+    expect(mailer.sent).toHaveLength(1);
+    expect((await ticketRow(id)).status).toBe("replied");
+  });
+
+  it("refuses another agent's ticket, a reply that has not failed, and an unknown message", async () => {
+    const { id, messageId } = await failedReply();
+    expect((await retry(id, messageId, ben)).status).toBe(403);
+    expect((await retry(id, messageId)).status).toBe(200);
+    const again = await retry(id, messageId);
+    expect(again.status).toBe(409);
+    expect((await again.json()).code).toBe("not_failed");
+    expect((await retry(id, 999_999)).status).toBe(404);
+  });
+});
+
+describe("events", () => {
+  it("publishes each status change, ids only", async () => {
+    const { subscribe } = await import("@/lib/events");
+    const seen: { type: string; status?: string }[] = [];
+    const stop = await subscribe((e) => seen.push(e));
+    try {
+      const id = await inbound("<in-1@example.com>");
+      await send(id, { body: "Private reply text." });
+      const [out] = await outbound(id);
+      await runDueJobs();
+      await new Promise((r) => setTimeout(r, 200));
+      const statuses = seen.filter((e) => e.type === "message.status_changed").map((e) => e.status);
+      expect(statuses).toEqual(["sending", "sent"]);
+      expect(seen).toContainEqual({ type: "message.status_changed", ticketId: id, messageId: out.id, status: "sent" });
+      expect(seen).toContainEqual({ type: "ticket.updated", ticketId: id, status: "replied" });
+      expect(JSON.stringify(seen)).not.toContain("Private reply text.");
+    } finally {
+      stop();
+    }
   });
 });

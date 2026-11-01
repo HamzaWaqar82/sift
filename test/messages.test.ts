@@ -127,13 +127,12 @@ describe("writes go to messages as well as the old fields", () => {
     expect(Number(missing.count)).toBe(0);
   });
 
-  it("a sent reply is a sent outbound message with the same idempotency key; a repeat adds nothing", async () => {
+  it("a reply is a queued outbound message with the same idempotency key; a repeat adds nothing", async () => {
     const id = await createViaForm({ customerEmail: "cust@example.com", subject: "Export failing", body: "My CSV export fails." });
     const key = crypto.randomUUID();
     expect((await reply(id, "Try again now.", key)).status).toBe(201);
     expect((await reply(id, "Try again now.", key)).status).toBe(200);
 
-    const [r] = await sql`select * from replies where ticket_id = ${id}`;
     const out = (await messagesOf(id)).filter((m) => m.direction === "outbound");
     expect(out).toHaveLength(1);
     const [aliceRow] = await sql`select id from users where email = 'alice@sift.local'`;
@@ -141,14 +140,14 @@ describe("writes go to messages as well as the old fields", () => {
       author_id: aliceRow.id,
       to_address: "cust@example.com",
       body_text: "Try again now.",
-      status: "sent",
+      status: "queued",
       idempotency_key: key,
       ai_draft: null,
       edited: true,
     });
     const [t] = await sql`select * from tickets where id = ${id}`;
-    expect(t.status).toBe("replied");
-    expect(t.last_outbound_at.toISOString()).toBe(r.sent_at.toISOString());
+    expect(t.status).toBe("open");
+    expect(t.last_outbound_at).toBeNull();
   });
 });
 

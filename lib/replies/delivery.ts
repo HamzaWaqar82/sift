@@ -89,16 +89,25 @@ export async function markFailed(messageId: number, lastError: string): Promise<
 
 /**
  * Manual retry of a failed reply: back to queued with a fresh job (fresh attempts).
- * Returns null when the message is not a failed outbound message of this ticket.
+ * `not_found` unless it is an outbound message of this ticket; `not_failed` unless it is failed.
  */
-export async function retryMessage(ticketId: number, messageId: number): Promise<{ id: number; status: MessageStatus } | null> {
+export async function retryMessage(
+  ticketId: number,
+  messageId: number,
+): Promise<{ id: number; status: MessageStatus } | "not_found" | "not_failed"> {
   return getDb().transaction(async (tx) => {
     const [msg] = await tx
       .update(messages)
       .set({ status: "queued" })
       .where(and(eq(messages.id, messageId), eq(messages.ticketId, ticketId), eq(messages.status, "failed")))
       .returning({ id: messages.id, status: messages.status });
-    if (!msg) return null;
+    if (!msg) {
+      const [exists] = await tx
+        .select({ id: messages.id })
+        .from(messages)
+        .where(and(eq(messages.id, messageId), eq(messages.ticketId, ticketId), eq(messages.direction, "outbound")));
+      return exists ? "not_failed" : "not_found";
+    }
     await enqueueJob(MAIL_SEND, { messageId } satisfies MailSendPayload, {}, tx);
     await statusChanged(ticketId, messageId, "queued", tx);
     return { id: msg.id, status: msg.status! };
