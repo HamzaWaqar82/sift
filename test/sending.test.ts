@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { runDueJobs } from "@/lib/jobs";
-import { FakeMailer, setMailer } from "@/lib/mail";
+import { FakeMailer, PermanentMailError, setMailer } from "@/lib/mail";
 import { giveTicketTo, seedTestUsers, signInAs } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
@@ -175,6 +175,18 @@ describe("failures and retries", () => {
     expect(out).toMatchObject({ status: "failed", attempts: 5, last_error: "auth failed" });
     expect(await ticketRow(id)).toMatchObject({ status: "open", last_outbound_at: null });
     expect(mailer.sent).toHaveLength(0);
+  });
+
+  it("fails at once, without retrying, when Gmail refuses the recipient outright", async () => {
+    const id = await inbound("<in-1@example.com>");
+    await send(id);
+    mailer.failWith(new PermanentMailError("Gmail rejected the message: 550 5.1.1 no such user"));
+
+    expect(await runDueJobs()).toMatchObject({ succeeded: 1, retried: 0 });
+    const [out] = await outbound(id);
+    expect(out).toMatchObject({ status: "failed", attempts: 1, last_error: expect.stringMatching(/no such user/) });
+    expect(await sql`select * from jobs where status = 'queued'`).toHaveLength(0);
+    expect(await ticketRow(id)).toMatchObject({ status: "open", last_outbound_at: null });
   });
 });
 
