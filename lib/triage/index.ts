@@ -4,6 +4,7 @@
 // additionally shows the latest attempt, so a failed attempt's error is visible.
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { publish } from "@/lib/events";
 import { helpArticles, triageResults, type TriageCategory, type TriageUrgency } from "@/lib/db/schema";
 import { latestInboundMessage } from "@/lib/messages";
 import { getTicket, getValidTriage, type CurrentTriage } from "@/lib/tickets";
@@ -153,5 +154,6 @@ export async function requestTriage(
   }
 
   const [row] = await db.insert(triageResults).values(record).returning();
+  await publish({ type: "triage.updated", ticketId });
   return { kind: "done", triage: await toView(row), cached: false };
 }
