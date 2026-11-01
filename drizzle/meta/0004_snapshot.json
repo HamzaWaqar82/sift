@@ -1,5 +1,5 @@
 {
-  "id": "8e353a62-a3a0-44cb-9fab-c88e67879b5d",
+  "id": "a0c5ad7b-4e83-43fa-81ee-cc1069f72c02",
   "prevId": "77dc3e4d-cc66-400c-bcd6-e3940a0314e4",
   "version": "7",
   "dialect": "postgresql",
@@ -23,96 +23,6 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.dev_mailbox": {
-      "name": "dev_mailbox",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "message_id": {
-          "name": "message_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "from": {
-          "name": "from",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "to": {
-          "name": "to",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "subject": {
-          "name": "subject",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "text": {
-          "name": "text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "html": {
-          "name": "html",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "captured_at": {
-          "name": "captured_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "dev_mailbox_captured_idx": {
-          "name": "dev_mailbox_captured_idx",
-          "columns": [
-            {
-              "expression": "captured_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -158,8 +68,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.jobs": {
-      "name": "jobs",
+    "public.messages": {
+      "name": "messages",
       "schema": "",
       "columns": {
         "id": {
@@ -168,28 +78,75 @@
           "primaryKey": true,
           "notNull": true
         },
-        "kind": {
-          "name": "kind",
+        "ticket_id": {
+          "name": "ticket_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "direction": {
+          "name": "direction",
+          "type": "message_direction",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_id": {
+          "name": "author_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "from_address": {
+          "name": "from_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_address": {
+          "name": "to_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subject": {
+          "name": "subject",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "payload": {
-          "name": "payload",
-          "type": "jsonb",
+        "body_text": {
+          "name": "body_text",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
+          "notNull": true
         },
-        "priority": {
-          "name": "priority",
-          "type": "integer",
+        "body_html": {
+          "name": "body_html",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": 0
+          "notNull": false
         },
-        "run_at": {
-          "name": "run_at",
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "in_reply_to": {
+          "name": "in_reply_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "references": {
+          "name": "references",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -197,11 +154,10 @@
         },
         "status": {
           "name": "status",
-          "type": "job_status",
+          "type": "message_status",
           "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'queued'"
+          "notNull": false
         },
         "attempts": {
           "name": "attempts",
@@ -210,51 +166,49 @@
           "notNull": true,
           "default": 0
         },
-        "max_attempts": {
-          "name": "max_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 5
-        },
-        "locked_at": {
-          "name": "locked_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "last_error": {
           "name": "last_error",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp (3) with time zone",
+        "provider_message_id": {
+          "name": "provider_message_id",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "timestamp (3) with time zone",
+        "ai_draft": {
+          "name": "ai_draft",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edited": {
+          "name": "edited",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {
-        "jobs_due_idx": {
-          "name": "jobs_due_idx",
+        "messages_ticket_occurred_idx": {
+          "name": "messages_ticket_occurred_idx",
           "columns": [
             {
-              "expression": "priority",
+              "expression": "ticket_id",
               "isExpression": false,
-              "asc": false,
+              "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "run_at",
+              "expression": "occurred_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -267,33 +221,63 @@
             }
           ],
           "isUnique": false,
-          "where": "\"jobs\".\"status\" = 'queued'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "jobs_running_idx": {
-          "name": "jobs_running_idx",
-          "columns": [
-            {
-              "expression": "locked_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"jobs\".\"status\" = 'running'",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "messages_ticket_id_tickets_id_fk": {
+          "name": "messages_ticket_id_tickets_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "tickets",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "messages_author_id_users_id_fk": {
+          "name": "messages_author_id_users_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "users",
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "messages_message_id_unique": {
+          "name": "messages_message_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "message_id"
+          ]
+        },
+        "messages_idempotency_key_unique": {
+          "name": "messages_idempotency_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "idempotency_key"
+          ]
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "messages_direction_shape": {
+          "name": "messages_direction_shape",
+          "value": "(\"messages\".\"direction\" = 'inbound' and \"messages\".\"author_id\" is null and \"messages\".\"status\" is null)\n        or (\"messages\".\"direction\" = 'outbound' and \"messages\".\"status\" is not null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.replies": {
@@ -576,6 +560,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "last_inbound_at": {
+          "name": "last_inbound_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_outbound_at": {
+          "name": "last_outbound_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -870,43 +866,26 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
-    "public.worker_heartbeats": {
-      "name": "worker_heartbeats",
-      "schema": "",
-      "columns": {
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "beat_at": {
-          "name": "beat_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
     }
   },
   "enums": {
-    "public.job_status": {
-      "name": "job_status",
+    "public.message_direction": {
+      "name": "message_direction",
+      "schema": "public",
+      "values": [
+        "inbound",
+        "outbound"
+      ]
+    },
+    "public.message_status": {
+      "name": "message_status",
       "schema": "public",
       "values": [
         "queued",
-        "running",
-        "done",
-        "failed"
+        "sending",
+        "sent",
+        "failed",
+        "bounced"
       ]
     },
     "public.ticket_source": {

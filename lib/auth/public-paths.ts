@@ -6,6 +6,8 @@ export const PUBLIC_PATHS = [
   "/sign-in", // sign-in page
   "/api/auth/sign-in",
   "/api/auth/sign-out", // must work even with an expired session
+  "/icon.svg", // favicon (also needed on the signed-out sign-in page)
+  "/apple-icon", // apple-touch icon
   "/api/health", // deploy smoke test
   "/api/webhook", // inbound email (ticket 04); secured by WEBHOOK_SECRET in the handler
 ] as const;

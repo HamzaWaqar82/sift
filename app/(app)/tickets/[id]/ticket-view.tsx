@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPageUser, isAdmin } from "@/lib/auth";
-import { listReplies } from "@/lib/replies";
+import { listMessages } from "@/lib/messages";
 import { getTicket, listAssignableUsers } from "@/lib/tickets";
 import { getLatestAttempt } from "@/lib/triage";
 import { LABELS } from "../../_lib/params";
@@ -10,14 +10,15 @@ import { TicketActions } from "./close-button";
 import { CappedText } from "./capped-text";
 import { ReassignForm } from "./reassign-form";
 import { ReplyEditor } from "./reply-editor";
-import { Thread } from "./replies";
+import { Thread } from "./thread";
 import { TriagePanelClient, type TriageViewJson } from "./triage-panel-client";
 
 const STATUS_RUBBER = { open: "rubber-sent", replied: "rubber-draft", closed: "rubber-void" } as const;
 
 /**
  * One ticket as a coupon: head (number, subject, customer, received, source, status, urgency,
- * category, owner), the customer's message, the thread of sent replies (carbon copies), AI
+ * category, owner), the opening customer message, the rest of the conversation (customer messages
+ * and sent replies as carbon copies), AI
  * triage, and the reply composer beside its source article. Used by /tickets/[id] and the
  * inbox's right pane.
  */
@@ -32,11 +33,14 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
     );
   }
   const admin = isAdmin(user);
-  const [replies, latest, users] = await Promise.all([
-    listReplies(ticket.id),
+  const [messages, latest, users] = await Promise.all([
+    listMessages(ticket.id),
     getLatestAttempt(ticket.id),
     admin ? listAssignableUsers() : Promise.resolve([]),
   ]);
+  // The opening customer message sits on the coupon; everything after it is the thread.
+  const [opening, ...thread] = messages;
+  const replyCount = messages.filter((m) => m.direction === "outbound" && m.status === "sent").length;
   const triage = ticket.currentTriage;
   const initialTriage = latest ? ({ ...latest, createdAt: latest.createdAt.toISOString() } as TriageViewJson) : null;
   const headingId = `ticket-${ticket.id}-subject`;
@@ -100,7 +104,7 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
                     </div>
                     <div className="flex items-center gap-2">
                       <dt className="field-label">Replies</dt>
-                      <dd className="num text-xs">{replies.length}</dd>
+                      <dd className="num text-xs">{replyCount}</dd>
                     </div>
                     <div className="flex items-center gap-2">
                       <dt className="field-label">Owner</dt>
@@ -119,7 +123,7 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
                     <span className="rubber-word text-lg">{ticket.status === "closed" ? "Void" : LABELS.status[ticket.status]}</span>
                     <span className="rubber-meta">{ticket.status === "closed" ? "Closed " : ""}<span className="font-mono normal-case tracking-normal">{stampTime(ticket.updatedAt)}</span></span>
                   </div>
-                  <TicketActions ticketId={ticket.id} status={ticket.status} canClose={admin || replies.length > 0} admin={admin} />
+                  <TicketActions ticketId={ticket.id} status={ticket.status} canClose={admin || replyCount > 0} admin={admin} />
                 </div>
               </div>
             </div>
@@ -129,12 +133,12 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
 
           <section aria-label="Customer message" className="px-4 py-4 sm:px-5">
             <h2 className="field-label mb-2">Customer message</h2>
-            <CappedText text={ticket.body} compact={embedded} />
+            <CappedText text={opening?.bodyText ?? ticket.body} compact={embedded} />
           </section>
         </div>
       </div>
 
-      <Thread replies={replies} />
+      <Thread messages={thread} customer={ticket.customerName ?? ticket.customerEmail} />
 
       <TriagePanelClient ticketId={ticket.id} initial={initialTriage} canRegenerate={admin} />
 

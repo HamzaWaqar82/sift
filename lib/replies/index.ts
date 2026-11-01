@@ -1,8 +1,9 @@
-// Sending and listing replies. Replies are recorded in the app only; no email is delivered.
+// Sending and listing replies. Replies are recorded in the app only; no email is delivered yet, so
+// each one is also written to `messages` as an outbound message that is `sent` immediately.
 import { asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { replies, tickets, users, type UserRef } from "@/lib/db/schema";
+import { messages, replies, tickets, users, type UserRef } from "@/lib/db/schema";
 import { getTicket, getValidTriage } from "@/lib/tickets";
 import { cleanLine, cleanText } from "@/lib/text";
 import { idField } from "@/lib/validation";
@@ -85,7 +86,25 @@ export async function sendReply(
       .onConflictDoNothing({ target: replies.idempotencyKey })
       .returning({ id: replies.id });
     if (!row) return false;
-    await tx.update(tickets).set({ status: "replied", updatedAt: sql`now()` }).where(eq(tickets.id, ticketId));
+    const [ticket] = await tx
+      .update(tickets)
+      .set({ status: "replied", updatedAt: sql`now()`, lastOutboundAt: sql`now()` })
+      .where(eq(tickets.id, ticketId))
+      .returning({ customerEmail: tickets.customerEmail, subject: tickets.subject, lastOutboundAt: tickets.lastOutboundAt });
+    await tx.insert(messages).values({
+      ticketId,
+      direction: "outbound",
+      authorId: userId,
+      toAddress: ticket.customerEmail,
+      subject: `Re: ${ticket.subject}`,
+      bodyText: input.body,
+      occurredAt: ticket.lastOutboundAt!,
+      status: "sent",
+      attempts: 1,
+      aiDraft,
+      edited,
+      idempotencyKey: input.idempotencyKey,
+    });
     return true;
   });
 

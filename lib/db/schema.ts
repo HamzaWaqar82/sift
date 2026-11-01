@@ -30,6 +30,8 @@ export const triageCategory = pgEnum("triage_category", [
   "other",
 ]);
 export const triageUrgency = pgEnum("triage_urgency", ["low", "medium", "high"]);
+export const messageDirection = pgEnum("message_direction", ["inbound", "outbound"]);
+export const messageStatus = pgEnum("message_status", ["queued", "sending", "sent", "failed", "bounced"]);
 
 // Millisecond precision so timestamps round-trip exactly through JS Dates (cursor paging relies on it).
 const tsMs = (name: string) => timestamp(name, { withTimezone: true, precision: 3 });
@@ -44,7 +46,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** One customer message. Every inbound email or form submission creates a new ticket. */
+/** A customer conversation. Every inbound email or form submission creates a new ticket (threading comes later). */
 export const tickets = pgTable(
   "tickets",
   {
@@ -60,6 +62,10 @@ export const tickets = pgTable(
     externalMessageId: text("external_message_id").unique(),
     createdAt: tsMs("created_at").notNull().defaultNow(),
     updatedAt: tsMs("updated_at").notNull().defaultNow(),
+    /** When the customer last wrote (the latest inbound message). */
+    lastInboundAt: tsMs("last_inbound_at"),
+    /** When a reply last reached `sent`. Null until the first one. */
+    lastOutboundAt: tsMs("last_outbound_at"),
   },
   (t) => [
     index("tickets_created_at_id_idx").on(t.createdAt.desc(), t.id.desc()),
@@ -126,6 +132,51 @@ export const replies = pgTable(
     idempotencyKey: text("idempotency_key").notNull().unique(),
   },
   (t) => [index("replies_ticket_sent_idx").on(t.ticketId, t.sentAt)],
+);
+
+/**
+ * The conversation: every inbound and outbound message of a ticket.
+ * Expand step: `tickets.body` and `replies` are still written alongside and are dropped once
+ * threading is live. The first inbound message is the ticket body; outbound messages carry the
+ * same idempotency key as their `replies` row. Delivery state (status, attempts, last error,
+ * provider id) applies to outbound only; inbound rows leave status null.
+ */
+export const messages = pgTable(
+  "messages",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    direction: messageDirection("direction").notNull(),
+    /** The staff user who wrote an outbound message; null when inbound. */
+    authorId: integer("author_id").references(() => users.id),
+    fromAddress: text("from_address"),
+    toAddress: text("to_address"),
+    subject: text("subject").notNull(),
+    bodyText: text("body_text").notNull(),
+    bodyHtml: text("body_html"),
+    /** RFC 5322 Message-ID; unique so a redelivered email is stored once. Null for legacy and form rows. */
+    messageId: text("message_id").unique(),
+    inReplyTo: text("in_reply_to"),
+    references: text("references"),
+    occurredAt: tsMs("occurred_at").notNull().defaultNow(),
+    status: messageStatus("status"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    providerMessageId: text("provider_message_id"),
+    aiDraft: text("ai_draft"),
+    edited: boolean("edited"),
+    idempotencyKey: text("idempotency_key").unique(),
+  },
+  (t) => [
+    index("messages_ticket_occurred_idx").on(t.ticketId, t.occurredAt, t.id),
+    check(
+      "messages_direction_shape",
+      sql`(${t.direction} = 'inbound' and ${t.authorId} is null and ${t.status} is null)
+        or (${t.direction} = 'outbound' and ${t.status} is not null)`,
+    ),
+  ],
 );
 
 /** Number of AI provider calls per UTC day, checked against AI_DAILY_CAP. */
@@ -218,6 +269,8 @@ export type TicketStatus = (typeof ticketStatus.enumValues)[number];
 export type TriageCategory = (typeof triageCategory.enumValues)[number];
 export type TriageUrgency = (typeof triageUrgency.enumValues)[number];
 export type JobStatus = (typeof jobStatus.enumValues)[number];
+export type MessageDirection = (typeof messageDirection.enumValues)[number];
+export type MessageStatus = (typeof messageStatus.enumValues)[number];
 
 /** A staff user as shown next to tickets and replies (assignee, reply sender, assignee picker). */
 export type UserRef = { id: number; name: string; email: string };
