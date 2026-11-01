@@ -226,6 +226,8 @@ describe("manual triage job", () => {
     expect(job).toMatchObject({ status: "queued", attempts: 0 });
     const [call] = await sql`select outcome from ai_calls`;
     expect(call.outcome).toBe("rate_limited");
+    const { aiPanel } = await import("@/lib/triage/limiter");
+    expect(await aiPanel()).toMatchObject({ rateLimitedToday: 1, queue: { queued: 1, running: 0 } });
 
     await sql`update jobs set run_at = now()`;
     await runTriageJobs();

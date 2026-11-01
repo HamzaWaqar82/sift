@@ -62,7 +62,7 @@ Refresh the browser: **How do I add a new team member?** is at the top, source `
 ## 8:30–10:00 Safety: prompt injection and failures
 
 1. Open **Question about my subscription** (#9): the email tells the model to ignore its instructions. The pre-triaged result is an ordinary, harmless draft. The email goes into the prompt as untrusted data inside tags; the real control is that a human reviews every draft.
-2. Mention, without demoing: invalid model output (bad JSON, invented article) is stored as an error with **Show raw AI output** and **Retry triage**, never shown as a draft; email addresses and phone numbers are redacted before the call; at most `AI_DAILY_CAP` (50) calls per UTC day, then 429 and the agent writes manually.
+2. Mention, without demoing: invalid model output (bad JSON, invented article) is stored as an error with **Show raw AI output** and **Retry**, never shown as a draft; email addresses and phone numbers are redacted before the call; every call passes the AI budget (`AI_RPM_LIMIT` per minute, `AI_DAILY_CAP` per UTC day); at a limit the ticket shows "Waiting on AI limit" or "Daily AI limit reached" and the agent can write manually.
 
 ## 10:00–12:30 Roles: reassign (admin window + terminal)
 

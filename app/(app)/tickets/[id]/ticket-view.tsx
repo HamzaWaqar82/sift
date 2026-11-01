@@ -4,7 +4,7 @@ import { listMessages } from "@/lib/messages";
 import { listNotes } from "@/lib/notes";
 import { getTicket, listAssignableUsers } from "@/lib/tickets";
 import { ticketPermission } from "@/lib/tickets/permissions";
-import { getLatestAttempt } from "@/lib/triage";
+import { getLatestAttempt, getTriageState } from "@/lib/triage";
 import { LABELS } from "../../_lib/params";
 import { JustReplied } from "../../_components/live-updates";
 import { stampTime, timeAgo } from "../../_components/ticket-labels";
@@ -38,10 +38,11 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
     );
   }
   const admin = isAdmin(user);
-  const [messages, notes, latest, users] = await Promise.all([
+  const [messages, notes, latest, triageState, users] = await Promise.all([
     listMessages(ticket.id),
     listNotes(ticket.id),
     getLatestAttempt(ticket.id),
+    getTriageState(ticket.id),
     admin ? listAssignableUsers() : Promise.resolve([]),
   ]);
   // The opening customer message sits on the coupon; everything after it is the thread.
@@ -168,7 +169,14 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
 
       <JustReplied key={ticket.id} ticketId={ticket.id} />
 
-      <TriagePanelClient ticketId={ticket.id} initial={initialTriage} canRequest={canTriage} canRegenerate={admin} />
+      <TriagePanelClient
+        ticketId={ticket.id}
+        initial={initialTriage}
+        state={{ state: triageState.state, retryAt: triageState.retryAt?.toISOString() ?? null }}
+        hasValid={triage !== null}
+        canRequest={canTriage}
+        canRegenerate={admin}
+      />
 
       <WithArticlePanel grounding={ticket.grounding} wide={!embedded}>
         <ReplyEditor

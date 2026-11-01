@@ -1,57 +1,72 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, CircleAlert, Clock, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
-import type { TriageView } from "@/lib/triage";
+import type { TriageStateName, TriageView } from "@/lib/triage";
 import { CategoryLabel, UrgencyTab } from "../../_components/ticket-labels";
 
 /** TriageView as JSON (dates as ISO strings), as returned by /api/tickets/:id/triage. */
 type Jsonify<T> = T extends unknown ? Omit<T, "createdAt"> & { createdAt: string } : never;
 export type TriageViewJson = Jsonify<TriageView>;
+export type TriageStateJson = { state: TriageStateName; retryAt: string | null };
 
-type Problem = { kind: "cap" | "error"; message: string } | null;
+/** While a job is on its way, refetch in case the live connection missed the event. */
+const POLL_MS: Partial<Record<TriageStateName, number>> = {
+  queued: 4000,
+  running: 4000,
+  waiting_rate_limit: 15_000,
+  daily_cap_reached: 60_000,
+};
 
 function when(iso: string): string {
   const d = new Date(iso);
   const date = d.toLocaleString("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" });
-  const time = d.toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
-  return `${date} ${time} UTC`;
+  return `${date} ${clock(iso)} UTC`;
+}
+
+function clock(iso: string): string {
+  return new Date(iso).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
 }
 
 /**
- * AI triage strip: request (on demand, cost-capped), loading, the result (category, urgency,
- * source article), a failed attempt with its raw output collapsed, the daily cap, and the
- * admin-only regenerate with an inline confirm.
+ * AI triage strip. Shows the ticket's triage state (Queued, Triaging…, Triaged, Waiting on AI
+ * limit, Daily AI limit reached, Failed, Out of date) and the result. A click enqueues a job;
+ * the result arrives through live events, with a short poll as a fallback. Admins can
+ * regenerate with an inline confirm.
  */
 export function TriagePanelClient({
   ticketId,
   initial,
+  state,
+  hasValid = false,
   canRequest = true,
   canRegenerate = false,
 }: {
   ticketId: number;
   initial: TriageViewJson | null;
+  state: TriageStateJson;
+  /** A valid triage exists (so a failed attempt was a regenerate, which only an admin can retry). */
+  hasValid?: boolean;
   /** Only the owner or an admin may ask for a triage (others still see the result). */
   canRequest?: boolean;
   canRegenerate?: boolean;
 }) {
   const router = useRouter();
-  const [triage, setTriage] = useState<TriageViewJson | null>(initial);
-  const [pending, setPending] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [problem, setProblem] = useState<Problem>(null);
-  const [lastInitialId, setLastInitialId] = useState(initial?.id ?? null);
+  const [problem, setProblem] = useState<string | null>(null);
 
-  // A refresh brought a newer stored attempt (e.g. another tab regenerated): show it.
-  if ((initial?.id ?? null) !== lastInitialId) {
-    setLastInitialId(initial?.id ?? null);
-    setTriage(initial);
-  }
+  const poll = POLL_MS[state.state];
+  useEffect(() => {
+    if (!poll) return;
+    const t = setInterval(() => router.refresh(), poll);
+    return () => clearInterval(t);
+  }, [poll, router]);
 
   async function run(force = false) {
     setConfirming(false);
-    setPending(true);
+    setPosting(true);
     setProblem(null);
     try {
       const res = await fetch(
@@ -60,83 +75,101 @@ export function TriagePanelClient({
           ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ force: true }) }
           : { method: "POST" },
       );
-      const json = await res.json().catch(() => null);
-      if (json?.triage) {
-        setTriage(json.triage);
-        // Re-render server parts (e.g. the reply editor prefilled from the draft).
+      if (res.ok) {
+        // 202 queued or 200 cached: the server-rendered panel now shows the new state.
         router.refresh();
-      } else if (res.status === 429) {
-        setProblem({ kind: "cap", message: json?.error ?? "Today's AI limit has been reached. Write the reply manually." });
       } else {
-        setProblem({ kind: "error", message: json?.error ?? `Triage request failed (${res.status}).` });
+        const json = await res.json().catch(() => null);
+        setProblem(json?.error ?? `Triage request failed (${res.status}).`);
       }
     } catch {
-      setProblem({ kind: "error", message: "Could not reach the server. Try again." });
+      setProblem("Could not reach the server. Try again.");
     } finally {
-      setPending(false);
+      setPosting(false);
     }
   }
 
-  const ok = triage?.status === "ok" ? triage : null;
-  const failed = triage?.status === "error" ? triage : null;
+  const s = state.state;
+  const working = posting || s === "queued" || s === "running";
+  const ok = initial?.status === "ok" ? initial : null;
+  const failed = s === "failed" && initial?.status === "error" ? initial : null;
+  const showResult = ok && (s === "done" || s === "superseded" || (!working && s !== "failed"));
 
   return (
-    <section aria-label="AI triage" aria-busy={pending} className="coupon-quiet">
+    <section aria-label="AI triage" aria-busy={working} className="coupon-quiet">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <h2 className="flex items-center gap-1.5 caps text-sm text-ink">
           <Sparkles className="size-4" strokeWidth={1.5} aria-hidden="true" />
           AI triage
         </h2>
 
-        {ok && !pending && (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <UrgencyTab urgency={ok.urgency} />
-            <CategoryLabel category={ok.category} />
-            {ok.article ? (
-              <span className="inline-flex min-w-0 items-center gap-1 text-ink-2">
-                <BookOpen className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-                <span className="truncate">{ok.article.title}</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 font-medium text-warn-ink">
-                <TriangleAlert className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
-                Not grounded
-              </span>
-            )}
-            <span className="num text-xs" title={`Model ${ok.model}`}>
-              {when(ok.createdAt)}
+        <div aria-live="polite" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          {working && (
+            <span className="flex items-center gap-3" role="status">
+              <span className="skel h-5 w-14" aria-hidden="true" />
+              <span className="skel h-3.5 w-20" aria-hidden="true" />
+              <span className="text-xs text-ink-2">{s === "running" ? "Triaging…" : "Queued"}</span>
             </span>
-          </div>
-        )}
-        {!triage && !pending && (
-          <p className="flex-1 text-sm text-ink-2">{canRequest
-            ? "Not triaged yet. Triage runs only when you ask, and counts toward today\u2019s AI limit."
-            : "Not triaged yet. The ticket\u2019s owner can run triage."}</p>
-        )}
-        {failed && !pending && <p className="flex-1 text-sm font-medium text-jet-ink">The latest triage attempt failed.</p>}
-        {pending && (
-          <div className="flex flex-1 items-center gap-3" role="status">
-            <span className="sr-only">Asking the AI for a category, urgency and draft. This takes a few seconds.</span>
-            <span className="skel h-5 w-14" aria-hidden="true" />
-            <span className="skel h-3.5 w-20" aria-hidden="true" />
-            <span className="skel h-3.5 w-40" aria-hidden="true" />
-            <span className="text-xs text-ink-2" aria-hidden="true">
-              Reading the ticket…
+          )}
+          {!working && s === "waiting_rate_limit" && (
+            <span className="inline-flex items-center gap-1.5 font-medium text-warn-ink" role="status">
+              <Clock className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+              Waiting on AI limit{state.retryAt && <>, retries at <span className="num">{clock(state.retryAt)} UTC</span></>}
             </span>
-          </div>
-        )}
+          )}
+          {!working && s === "daily_cap_reached" && (
+            <span className="inline-flex items-center gap-1.5 font-medium text-warn-ink" role="status">
+              <Clock className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+              Daily AI limit reached. Write the reply manually, or wait for{" "}
+              {state.retryAt ? <span className="num">{when(state.retryAt)}</span> : "tomorrow"}.
+            </span>
+          )}
+          {!working && s === "failed" && <span className="font-medium text-jet-ink">Failed</span>}
+          {!working && s === "none" && (
+            <span className="text-ink-2">
+              {canRequest
+                ? "Not triaged yet. Triage counts toward today’s AI limit."
+                : "Not triaged yet. The ticket’s owner can run triage."}
+            </span>
+          )}
+          {showResult && !working && (
+            <>
+              {s === "superseded" && (
+                <span className="tab" data-tone="ground" title="The customer wrote again after this triage">
+                  Out of date
+                </span>
+              )}
+              <UrgencyTab urgency={ok.urgency} />
+              <CategoryLabel category={ok.category} />
+              {ok.article ? (
+                <span className="inline-flex min-w-0 items-center gap-1 text-ink-2">
+                  <BookOpen className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+                  <span className="truncate">{ok.article.title}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 font-medium text-warn-ink">
+                  <TriangleAlert className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+                  Not grounded
+                </span>
+              )}
+              <span className="num text-xs" title={`Model ${ok.model}`}>
+                {when(ok.createdAt)}
+              </span>
+            </>
+          )}
+        </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {!ok && canRequest && (
-            <button type="button" onClick={() => run()} disabled={pending} className="btn btn-sm btn-navy">
+          {canRequest && !working && (s === "none" || (s === "failed" && !hasValid) || s === "superseded") && (
+            <button type="button" onClick={() => run()} className="btn btn-sm btn-navy">
               <Sparkles className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
-              {pending ? "Triaging…" : failed ? "Retry triage" : "Triage with AI"}
+              {s === "failed" ? "Retry" : s === "superseded" ? "Re-triage" : "Triage with AI"}
             </button>
           )}
-          {ok && canRegenerate && !confirming && (
-            <button type="button" onClick={() => setConfirming(true)} disabled={pending} className="btn btn-sm">
+          {((ok && s === "done") || (s === "failed" && hasValid)) && canRegenerate && !confirming && !working && (
+            <button type="button" onClick={() => setConfirming(true)} className="btn btn-sm">
               <RefreshCw className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
-              {pending ? "Regenerating…" : "Regenerate"}
+              Regenerate
             </button>
           )}
         </div>
@@ -157,22 +190,13 @@ export function TriagePanelClient({
       )}
 
       <div aria-live="polite">
-        {problem && !pending && (
-          <p
-            role="alert"
-            className={`flex items-start gap-2 border-t px-4 py-3 text-sm ${
-              problem.kind === "cap" ? "border-warn-ink/30 bg-warn-tint text-warn-ink" : "border-jet-ink/30 bg-jet-tint text-jet-ink"
-            }`}
-          >
-            {problem.kind === "cap" ? (
-              <Clock className="mt-0.5 size-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-            ) : (
-              <CircleAlert className="mt-0.5 size-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-            )}
-            {problem.message}
+        {problem && !posting && (
+          <p role="alert" className="flex items-start gap-2 border-t border-jet-ink/30 bg-jet-tint px-4 py-3 text-sm text-jet-ink">
+            <CircleAlert className="mt-0.5 size-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+            {problem}
           </p>
         )}
-        {failed && !pending && (
+        {failed && !working && (
           <div className="border-t border-jet-ink/30 bg-jet-tint px-4 py-3 text-sm text-jet-ink">
             <p>{failed.error}</p>
             <p className="mt-1 text-ink-2">
