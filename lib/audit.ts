@@ -2,7 +2,14 @@
 import { getDb } from "@/lib/db";
 import { auditLog } from "@/lib/db/schema";
 
-export type AuditAction = "sign_in_failed" | "sessions_revoked" | "ticket_claimed" | "ticket_released";
+export type AuditAction =
+  | "sign_in_failed"
+  | "sessions_revoked"
+  | "role_changed"
+  | "user_deactivated"
+  | "user_reactivated"
+  | "ticket_claimed"
+  | "ticket_released";
 
 export async function recordAudit(entry: {
   /** Null means the system (or an unauthenticated caller). */
