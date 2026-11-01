@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getPageUser, isAdmin } from "@/lib/auth";
 import { listMessages } from "@/lib/messages";
+import { listNotes } from "@/lib/notes";
 import { getTicket, listAssignableUsers } from "@/lib/tickets";
 import { getLatestAttempt } from "@/lib/triage";
 import { LABELS } from "../../_lib/params";
@@ -8,6 +9,7 @@ import { stampTime, timeAgo } from "../../_components/ticket-labels";
 import { WithArticlePanel } from "./article-panel";
 import { TicketActions } from "./close-button";
 import { CappedText } from "./capped-text";
+import { NoteForm } from "./note-form";
 import { ReassignForm } from "./reassign-form";
 import { ReplyEditor } from "./reply-editor";
 import { Thread } from "./thread";
@@ -33,8 +35,9 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
     );
   }
   const admin = isAdmin(user);
-  const [messages, latest, users] = await Promise.all([
+  const [messages, notes, latest, users] = await Promise.all([
     listMessages(ticket.id),
+    listNotes(ticket.id),
     getLatestAttempt(ticket.id),
     admin ? listAssignableUsers() : Promise.resolve([]),
   ]);
@@ -138,7 +141,9 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
         </div>
       </div>
 
-      <Thread messages={thread} customer={ticket.customerName ?? ticket.customerEmail} />
+      <Thread messages={thread} notes={notes} customer={ticket.customerName ?? ticket.customerEmail} />
+
+      <NoteForm ticketId={ticket.id} />
 
       <TriagePanelClient ticketId={ticket.id} initial={initialTriage} canRegenerate={admin} />
 
