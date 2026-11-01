@@ -8,5 +8,5 @@
 
 - [x] `internal_notes` table. Notes appear inline in the conversation, styled lilac and labelled *Internal note*
 - [x] Never emailed, never included in AI prompts, doesn't change ownership or the overdue clock
-- [ ] Publishes `note.created` (not done: the event bus from ticket 11 was not on staging yet. Emit from `addNote` in `lib/notes/index.ts` once it lands.)
+- [x] Publishes `note.created` (emitted from `addNote`; added with ticket 11)
 - [x] Tests: any agent can add one, excluded from the prompt and from outbound mail (no Mailer exists yet; the test asserts notes never enter `messages`, the source outbound mail is built from. Add a fake-`Mailer` assertion when ticket 12 lands.)
