@@ -1,0 +1,70 @@
+# Staging stack, on the same host as production: app -> Postgres, no Caddy and no host ports.
+# Production's Caddy reaches the app over the shared `sift-edge` network (created by
+# compose.prod.yaml) as `sift-staging-app:3000` and serves it at STAGING_HOSTNAME.
+# Usage on the server, from the staging checkout:  docker compose -f compose.staging.yaml up -d --build
+# Requires its own hand-made .env next to this file (see README "Staging").
+name: sift-staging
+
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://${POSTGRES_USER:?set POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:?set POSTGRES_DB}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+  AI_DAILY_CAP: ${AI_DAILY_CAP:-50}
+  WEBHOOK_SECRET: ${WEBHOOK_SECRET:?set WEBHOOK_SECRET}
+  SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET}
+  SEED_PASSWORD_ADMIN: ${SEED_PASSWORD_ADMIN:?set SEED_PASSWORD_ADMIN}
+  SEED_PASSWORD_ALICE: ${SEED_PASSWORD_ALICE:?set SEED_PASSWORD_ALICE}
+  SEED_PASSWORD_BEN: ${SEED_PASSWORD_BEN:?set SEED_PASSWORD_BEN}
+  SEED_PASSWORD_CHLOE: ${SEED_PASSWORD_CHLOE:?set SEED_PASSWORD_CHLOE}
+  SEED_PASSWORD_DEV: ${SEED_PASSWORD_DEV:?set SEED_PASSWORD_DEV}
+  # Staging never emails real customers: mail is captured to the dev mailbox.
+  MAIL_TRANSPORT: ${MAIL_TRANSPORT:-capture}
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    environment: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    environment: *app-env
+    networks:
+      default:
+      edge:
+        aliases: [sift-staging-app]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+networks:
+  edge:
+    name: sift-edge
+    external: true
+
+volumes:
+  pgdata:
