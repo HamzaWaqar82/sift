@@ -4,8 +4,8 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A seeded user signs in through Better Auth in the spike, or the specific blocker is identified
-- [ ] Confirms existing bcrypt hashes can be verified
-- [ ] Decision and the chosen mapping are written into the spec's identity section; spike code is not merged
+- [x] A seeded user signs in through Better Auth in the spike, or the specific blocker is identified
+- [x] Confirms existing bcrypt hashes can be verified
+- [x] Decision and the chosen mapping are written into the spec's identity section; spike code is not merged
