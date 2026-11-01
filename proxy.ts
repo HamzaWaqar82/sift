@@ -1,16 +1,17 @@
-// Runs before every page and API route. A cheap first gate: requires a validly signed
-// session cookie on everything except PUBLIC_PATHS. Route handlers still call
-// requireUser/requireAdmin (lib/auth), which also checks the user exists and their role.
+// Runs before every page and API route. A cheap first gate with no database access: requires a
+// session cookie to be present on everything except PUBLIC_PATHS (Better Auth's recommended
+// optimistic check). Route handlers and pages still call requireUser/requireAdmin/requirePageUser
+// (lib/auth), which validate the session against the database, the user's status and their role.
+import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
+import { COOKIE_PREFIX } from "@/lib/auth/cookie";
 import { isPublicPath } from "@/lib/auth/public-paths";
-import { readSessionToken, SESSION_COOKIE } from "@/lib/auth/session";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (isPublicPath(pathname)) return NextResponse.next();
 
-  const userId = await readSessionToken(req.cookies.get(SESSION_COOKIE)?.value);
-  if (userId !== null) return NextResponse.next();
+  if (getSessionCookie(req, { cookiePrefix: COOKIE_PREFIX })) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Sign in required", code: "unauthorized" }, { status: 401 });
