@@ -9,7 +9,7 @@ Stack: Next.js (App Router, TypeScript), Tailwind, Postgres, Drizzle ORM, Zod, V
 - Deployable skeleton: Next.js app, Postgres, a one-off `migrate` Compose service that must complete before the app starts.
 - `GET /api/health` returns `{"status":"ok","db":"up"}` (200) or `{"status":"error","db":"down"}` (503).
 - Production Compose file with Caddy serving HTTPS on an sslip.io hostname.
-- Sign-in with email and password for four seeded agents and one admin (`admin@sift.local`; agents `alice@`, `ben@`, `chloe@`, `dev@sift.local`). Each account has its own password (`SEED_PASSWORD_ADMIN`, `SEED_PASSWORD_ALICE`, `SEED_PASSWORD_BEN`, `SEED_PASSWORD_CHLOE`, `SEED_PASSWORD_DEV`), bcrypt-hashed by the seed step that runs after migrations; changing a value and redeploying updates that user's password. The session is a signed (HS256, `SESSION_SECRET`), httpOnly, SameSite=Lax cookie valid for 7 days; sign-out clears it.
+- Sign-in with email and password for four seeded agents and one admin (`admin@sift.local`; agents `alice@`, `ben@`, `chloe@`, `dev@sift.local`). Each account has its own password (`SEED_PASSWORD_ADMIN`, `SEED_PASSWORD_ALICE`, `SEED_PASSWORD_BEN`, `SEED_PASSWORD_CHLOE`, `SEED_PASSWORD_DEV`), bcrypt-hashed by the seed step that runs after migrations; changing a value and redeploying updates that user's password. Sign-in runs on Better Auth (`SESSION_SECRET` is its secret, `APP_BASE_URL` its origin): sessions are database rows behind an httpOnly, SameSite=Lax cookie (Secure in production) with a 7-day absolute expiry. Sign-out ends the session; "sign out everywhere" revokes all of a user's sessions. Failed sign-ins are limited to 5 per 15 minutes per IP and per email, counted in the database.
 - Every page and API requires sign-in except `/api/health`, the inbound-email webhook and the sign-in endpoints (pages redirect to `/sign-in`, APIs return 401). Route handlers enforce roles on the server with `requireUser` / `requireAdmin` (403 for the wrong role).
 - Failed sign-ins are limited per client address in memory: after 5 failures in 15 minutes that address gets 429 until the window ends.
 - Ticket list (`/`, `GET /api/tickets`): newest first, 20 per page, filter by status (open, replied, closed). The filter and an opaque cursor live in the URL (`/?status=open&cursor=...`); changing the filter restarts from page one; going back uses browser history. Keyset paging on `(created_at, id)` means tickets arriving between pages never cause a duplicate or a skip. Each row shows subject, customer, status, assignee, source and age.
@@ -58,7 +58,7 @@ On a **free-tier Gemini key, Google may use the prompts (ticket text) to improve
 
 ## API
 
-All endpoints are JSON and need a session cookie, except `/api/health`, `/api/webhook` and `/api/auth/sign-in`. Every error has one shape: `{"error": string, "code"?: string, "fields"?: {field: message}}`. Common codes: `unauthorized` (401), `forbidden` (403), `not_found` (404), `invalid_json` (400), `validation_failed` (400, with `fields`), `invalid_cursor` (400), `payload_too_large` (413), `internal_error` (500, generic; details go only to the server log).
+All endpoints are JSON and need a session cookie, except `/api/health`, `/api/webhook` and `/api/auth/sign-in/email`. Every error has one shape: `{"error": string, "code"?: string, "fields"?: {field: message}}`. Common codes: `unauthorized` (401), `forbidden` (403), `not_found` (404), `invalid_json` (400), `validation_failed` (400, with `fields`), `invalid_cursor` (400), `payload_too_large` (413), `internal_error` (500, generic; details go only to the server log).
 
 ### Ticket list: `GET /api/tickets`
 
@@ -70,11 +70,12 @@ All endpoints are JSON and need a session cookie, except `/api/health`, `/api/we
 | `category` | `billing`, `technical`, `account`, `feature_request`, `other` (comma list) | Taken from the ticket's current (latest valid) triage. Untriaged tickets never match. |
 | `urgency` | `low`, `medium`, `high` (comma list) | Same as `category`. |
 | `source` | `webhook`, `form` | |
+| `overdue` | `1` | Only overdue tickets: not closed, and the customer's latest message has had no later sent reply for at least `OVERDUE_HOURS` (default 24). Also accepted by the board, summary and saved views. |
 | `sort` | `newest` (default), `oldest`, `updated` | `created_at desc` / `created_at asc` / `updated_at desc`, with id as the tiebreak. |
 | `limit` | 1 to 100, default 20 | |
 | `cursor` | opaque | The previous page's `nextCursor`. Only valid with the same `sort`; a bad cursor gives 400 `invalid_cursor`. |
 
-Response: `200 {"tickets": TicketListItem[], "nextCursor": string | null}`, where `TicketListItem = {id, customerEmail, customerName, subject, source, status, createdAt, updatedAt, assignee: {id, name, email} | null, triage: {ok: true, category, urgency} | {ok: false} | null}`. Paging is keyset-based on (sort key, id), so new tickets never cause a duplicate or a skip. With `sort=updated`, a ticket that changes during paging can move, but paging never errors. Empty parameters are ignored. Invalid values give 400 `validation_failed`, with `fields` keyed by parameter name.
+Response: `200 {"tickets": TicketListItem[], "nextCursor": string | null}`, where `TicketListItem = {id, customerEmail, customerName, subject, source, status, createdAt, updatedAt, assignee: {id, name, email} | null, triage: {ok: true, category, urgency} | {ok: false} | null, overdueWaitingSince: string | null}` (`overdueWaitingSince` is when the unanswered customer message arrived, set only while the ticket is overdue). Paging is keyset-based on (sort key, id), so new tickets never cause a duplicate or a skip. With `sort=updated`, a ticket that changes during paging can move, but paging never errors. Empty parameters are ignored. Invalid values give 400 `validation_failed`, with `fields` keyed by parameter name.
 
 Search uses plain `ILIKE` (a sequential scan). That is fine at this volume (hundreds to low thousands of tickets). Past that, add a `pg_trgm` GIN index on the subject, body and customer columns.
 
@@ -104,7 +105,7 @@ Takes `q`, `assignee`, `category`, `urgency` and `source`; `status`, `sort`, `li
 
 ### Saved views (per user)
 - `GET /api/views` returns `{views}` for the signed-in user only.
-- `POST /api/views` `{name, params}` returns 201 `{view}`. `name`: 1 to 40 characters. `params`: any of `view` (inbox, table, board), `q`, `status`, `assignee`, `category`, `urgency`, `source`, `sort`, `limit` (20, 50, 100), checked like `GET /api/tickets`; defaults are dropped. **409** `name_taken` (same name, any case) or `view_limit` (20 per user).
+- `POST /api/views` `{name, params}` returns 201 `{view}`. `name`: 1 to 40 characters. `params`: any of `view` (inbox, table, board), `q`, `status`, `assignee`, `category`, `urgency`, `source`, `overdue`, `sort`, `limit` (20, 50, 100), checked like `GET /api/tickets`; defaults are dropped. **409** `name_taken` (same name, any case) or `view_limit` (20 per user).
 - `PATCH /api/views/:id` `{name}` renames; `DELETE /api/views/:id` deletes. Another user's view gives 404 `not_found`, the same as a missing one.
 - The UI pins five built-in views (All tickets, Needs reply, My open, Unassigned, High urgency) before the saved ones; the active view is `?sv=` in the URL.
 

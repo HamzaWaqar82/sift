@@ -24,8 +24,10 @@ export function passwordsFromEnv(env = process.env) {
 }
 
 /**
- * Upserts the staff accounts. `passwords` is keyed by account key (admin, alice, ben, chloe,
- * dev). Existing users get their hash replaced, so a changed password takes effect on re-seed.
+ * Upserts the staff accounts (marked email-verified) and their Better Auth credential rows in
+ * `account` (account_id = users.id::text, the bcrypt hash in `password`). `passwords` is keyed by
+ * account key (admin, alice, ben, chloe, dev). Existing users get their hash replaced, so a
+ * changed password takes effect on re-seed.
  */
 export async function seedUsers(url, passwords) {
   const missing = SEED_USERS.filter((u) => !passwords[u.key]).map((u) => u.passwordEnv);
@@ -34,11 +36,19 @@ export async function seedUsers(url, passwords) {
   try {
     for (const u of SEED_USERS) {
       const hash = await bcrypt.hash(passwords[u.key], BCRYPT_COST);
-      await sql`
-        insert into users (email, name, role, password_hash)
-        values (${u.email}, ${u.name}, ${u.role}, ${hash})
-        on conflict (email) do update
-          set name = excluded.name, role = excluded.role, password_hash = excluded.password_hash`;
+      await sql.begin(async (tx) => {
+        const [{ id }] = await tx`
+          insert into users (email, name, role, email_verified)
+          values (${u.email}, ${u.name}, ${u.role}, true)
+          on conflict (email) do update
+            set name = excluded.name, role = excluded.role, email_verified = true, updated_at = now()
+          returning id`;
+        await tx`
+          insert into account (account_id, provider_id, user_id, password)
+          values (${String(id)}, 'credential', ${id}, ${hash})
+          on conflict (provider_id, account_id) do update
+            set password = excluded.password, updated_at = now()`;
+      });
     }
   } finally {
     await sql.end();
@@ -51,14 +61,19 @@ const SAMPLE_EMAILS = new URL("../samples/emails.json", import.meta.url);
  * Seeds each sample email (webhook contract shape) as an open, unassigned webhook ticket.
  * Idempotent: keyed on the email's message_id, so re-running never duplicates or overwrites.
  * The emails in samples/live/ are deliberately NOT seeded; they are posted live in the demo.
+ * Ages are relative to the seed run (newest an hour old, the samples' spacing compressed 4x,
+ * oldest under 3 days), so a fresh install shows both waiting and overdue tickets.
  * Returns the number of tickets newly created.
  */
-export async function seedSampleTickets(url) {
+export async function seedSampleTickets(url, now = new Date()) {
   const emails = JSON.parse(await readFile(SAMPLE_EMAILS, "utf8"));
+  const newest = Math.max(...emails.map((e) => Date.parse(e.received_at)));
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   let created = 0;
   try {
-    for (const e of emails) {
+    for (const sample of emails) {
+      const receivedAt = new Date(now.getTime() - 3_600_000 - (newest - Date.parse(sample.received_at)) / 4).toISOString();
+      const e = { ...sample, received_at: receivedAt };
       // The ticket and its first inbound message, as createTicket writes them.
       const rows = await sql`
         with t as (

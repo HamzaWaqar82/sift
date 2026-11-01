@@ -30,21 +30,112 @@ export const triageCategory = pgEnum("triage_category", [
   "other",
 ]);
 export const triageUrgency = pgEnum("triage_urgency", ["low", "medium", "high"]);
+export const userAvailability = pgEnum("user_availability", ["available", "away"]);
 export const messageDirection = pgEnum("message_direction", ["inbound", "outbound"]);
 export const messageStatus = pgEnum("message_status", ["queued", "sending", "sent", "failed", "bounced"]);
 
 // Millisecond precision so timestamps round-trip exactly through JS Dates (cursor paging relies on it).
 const tsMs = (name: string) => timestamp(name, { withTimezone: true, precision: 3 });
 
-/** Seeded staff accounts (no sign-up). Rows are created by scripts/seed.mjs. */
+/**
+ * Staff accounts; also Better Auth's user model (lib/auth/better-auth.ts). Property names follow
+ * Better Auth's (emailVerified, image, updatedAt), which is how it maps onto these columns.
+ * Passwords live in `account` (provider_id = 'credential'). New non-null columns need a default,
+ * or Better Auth's startup schema check fails.
+ */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   role: userRole("role").notNull(),
-  passwordHash: text("password_hash").notNull(),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  image: text("image"),
+  availability: userAvailability("availability").notNull().default("available"),
+  /** Set when an admin deactivates the user; guards treat their sessions as signed out. */
+  deactivatedAt: tsMs("deactivated_at"),
+  lastAssignedAt: tsMs("last_assigned_at"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Better Auth's tables. Ids are serial (advanced.database.generateId) so user_id can reference users.id.
+
+/** Sign-in methods per user. Credential rows hold the bcrypt hash in `password`, with account_id = users.id::text. */
+export const account = pgTable(
+  "account",
+  {
+    id: serial("id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // The unique pair lets the seed upsert credential rows idempotently.
+  (t) => [
+    uniqueIndex("account_provider_account_idx").on(t.providerId, t.accountId),
+    index("account_user_idx").on(t.userId),
+  ],
+);
+
+/** A signed-in browser. Deleting a row signs that browser out. */
+export const session = pgTable(
+  "session",
+  {
+    id: serial("id").primaryKey(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    token: text("token").notNull().unique(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("session_user_idx").on(t.userId)],
+);
+
+/** Better Auth's short-lived tokens (password reset, email change). */
+export const verification = pgTable("verification", {
+  id: serial("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Fixed-window counters (lib/auth/rate-limit.ts), kept in the database so restarts don't reset them. */
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  windowStart: tsMs("window_start").notNull(),
+  count: integer("count").notNull(),
+});
+
+/** Who did what (lib/audit.ts). A null actor means the system. */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: serial("id").primaryKey(),
+    actorId: integer("actor_id").references(() => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    ticketId: integer("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+    targetUserId: integer("target_user_id").references(() => users.id, { onDelete: "set null" }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: tsMs("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("audit_log_created_idx").on(t.createdAt.desc(), t.id.desc())],
+);
 
 /** A customer conversation. Every inbound email or form submission creates a new ticket (threading comes later). */
 export const tickets = pgTable(
@@ -179,6 +270,27 @@ export const messages = pgTable(
   ],
 );
 
+/**
+ * Staff-only notes on a ticket. Deliberately a separate table from `messages`: the conversation
+ * readers that feed AI prompts and outbound mail never see notes, and a note never touches
+ * ticket ownership, status or the overdue clock.
+ */
+export const internalNotes = pgTable(
+  "internal_notes",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    authorId: integer("author_id")
+      .notNull()
+      .references(() => users.id),
+    body: text("body").notNull(),
+    createdAt: tsMs("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("internal_notes_ticket_idx").on(t.ticketId, t.createdAt, t.id)],
+);
+
 /** Number of AI provider calls per UTC day, checked against AI_DAILY_CAP. */
 export const aiUsage = pgTable("ai_usage", {
   day: date("day").primaryKey(),
@@ -206,6 +318,7 @@ export const savedViews = pgTable(
 );
 
 export type UserRole =(typeof userRole.enumValues)[number];
+export type UserAvailability = (typeof userAvailability.enumValues)[number];
 export type TicketSource = (typeof ticketSource.enumValues)[number];
 export type TicketStatus = (typeof ticketStatus.enumValues)[number];
 export type TriageCategory = (typeof triageCategory.enumValues)[number];

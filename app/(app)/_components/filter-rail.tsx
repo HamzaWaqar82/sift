@@ -17,7 +17,7 @@ const STATUS_TABS: { value: string | null; label: string }[] = [
   { value: "closed", label: "Closed" },
 ];
 
-const FILTER_KEYS = ["q", "assignee", "urgency", "category", "source"] as const;
+const FILTER_KEYS = ["q", "overdue", "assignee", "urgency", "category", "source"] as const;
 
 /**
  * Status tabs with live counts, filter popovers (assignee, urgency, category, source, sort),
@@ -47,6 +47,7 @@ export function FilterRail({
 
   const chips: { key: string; label: string; href: string }[] = [];
   if (params.q) chips.push({ key: "q", label: `“${params.q}”`, href: hrefWith(params, { q: null }) });
+  if (params.overdue) chips.push({ key: "overdue", label: "Overdue", href: hrefWith(params, { overdue: null }) });
   if (params.assignee) {
     const label = assigneeOptions.find((o) => o.value === params.assignee)?.label ?? (Number(params.assignee) === meId ? "Me" : `User ${params.assignee}`);
     chips.push({ key: "assignee", label: `Owner: ${label}`, href: hrefWith(params, { assignee: null }) });

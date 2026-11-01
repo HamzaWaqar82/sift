@@ -58,6 +58,11 @@
   --color-lilac: #d9cfee; /* carbon copy of a sent reply; navy text 11.4:1 */
   --color-lilac-soft: #eee9f8;
 
+  /* Overdue: orange, so it never reads as HIGH urgency or Send. */
+  --color-overdue: #f28c28; /* the header count on the band; navy text on it 6.9:1 */
+  --color-overdue-ink: #9a3d00; /* 6.0:1 on overdue-tint, 5.6:1 on navy-tint */
+  --color-overdue-tint: #fdecdc;
+
   /* Semantic states. */
   --color-warn-ink: #7a4b00; /* 6.5:1 on warn-tint */
   --color-warn-tint: #fbf0d6;

@@ -3,6 +3,7 @@
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
+import { publish } from "@/lib/events";
 import {
   helpArticles,
   messages,
@@ -48,7 +49,12 @@ export type TriageSummary =
 export type TicketListItem = Pick<
   Ticket,
   "id" | "customerEmail" | "customerName" | "subject" | "source" | "status" | "createdAt" | "updatedAt"
-> & { assignee: Assignee; triage: TriageSummary };
+> & {
+  assignee: Assignee;
+  triage: TriageSummary;
+  /** When the customer's unanswered message arrived, if the ticket is overdue; null otherwise. */
+  overdueWaitingSince: Date | null;
+};
 
 /** A valid triage result with the help article it cites (null: the draft is ungrounded). */
 export type CurrentTriage = {
@@ -161,6 +167,10 @@ export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; 
       .set({ lastInboundAt: ticket.createdAt })
       .where(eq(tickets.id, ticket.id))
       .returning();
+    await publish(
+      { type: "ticket.created", ticketId: ticket.id, status: withInbound.status, assigneeId: withInbound.assigneeId },
+      tx,
+    );
     return withInbound;
   });
   if (row) return { ticket: row, created: true };
@@ -214,7 +224,10 @@ export async function closeTicket(id: number, opts: { anyTicket: boolean }): Pro
     .set({ status: "closed", updatedAt: sql`now()` })
     .where(and(eq(tickets.id, id), ne(tickets.status, "closed"), opts.anyTicket ? undefined : hasReply))
     .returning();
-  if (closed) return { ok: true, ticket: closed };
+  if (closed) {
+    await publish({ type: "ticket.updated", ticketId: id, status: closed.status });
+    return { ok: true, ticket: closed };
+  }
 
   const [existing] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1);
   if (!existing) return { ok: false, reason: "not-found" };
@@ -231,7 +244,10 @@ export async function reopenTicket(id: number): Promise<ReopenResult> {
     .set({ status: "open", updatedAt: sql`now()` })
     .where(and(eq(tickets.id, id), eq(tickets.status, "closed")))
     .returning();
-  if (reopened) return { ok: true, ticket: reopened };
+  if (reopened) {
+    await publish({ type: "ticket.updated", ticketId: id, status: reopened.status });
+    return { ok: true, ticket: reopened };
+  }
   const [existing] = await db.select({ id: tickets.id }).from(tickets).where(eq(tickets.id, id)).limit(1);
   return { ok: false, reason: existing ? "not_closed" : "not-found" };
 }
@@ -255,6 +271,9 @@ export async function assignTicket(
     .where(eq(tickets.id, id))
     .returning({ id: tickets.id });
   if (!row) return { ok: false, reason: "ticket-not-found" };
+  await publish(
+    assigneeId === null ? { type: "ticket.released", ticketId: id } : { type: "ticket.assigned", ticketId: id, assigneeId },
+  );
   return { ok: true, ticket: (await getTicket(id))! };
 }
 
