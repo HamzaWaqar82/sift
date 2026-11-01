@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requirePageUser } from "@/lib/auth";
 import { boardTickets, InvalidCursorError, listAssignableUsers, listTickets, ticketSummary } from "@/lib/tickets";
 import { parseBoardQuery, parseListQuery, parseSummaryQuery } from "@/lib/tickets/query";
 import { parseTicketId } from "@/lib/tickets/schema";
-import { apiParams, flatParams, hrefWith, pageSizeOf, trailOf, viewOf, type RawParams } from "./_lib/params";
+import { apiParams, DEFAULT_PRESET, flatParams, hrefWith, isBareList, pageSizeOf, trailOf, viewOf, type RawParams } from "./_lib/params";
 import { FilterRail } from "./_components/filter-rail";
 import { InboxList } from "./_components/inbox-list";
 import { TicketTable } from "./_components/ticket-table";
@@ -26,6 +27,8 @@ export const metadata = { title: "Tickets" };
 export default async function TicketsPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requirePageUser();
   const p = flatParams(await searchParams);
+  // *Mine* is the default view: a bare "/" (any view type) opens it.
+  if (isBareList(p)) redirect(hrefWith(p, { ...DEFAULT_PRESET.params, sv: DEFAULT_PRESET.key }));
   const view = viewOf(p);
 
   const summaryQuery = parseSummaryQuery(apiParams(p), user.id);

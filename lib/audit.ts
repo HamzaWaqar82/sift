@@ -7,7 +7,9 @@ export type AuditAction =
   | "sessions_revoked"
   | "role_changed"
   | "user_deactivated"
-  | "user_reactivated";
+  | "user_reactivated"
+  | "ticket_claimed"
+  | "ticket_released";
 
 export async function recordAudit(entry: {
   /** Null means the system (or an unauthenticated caller). */

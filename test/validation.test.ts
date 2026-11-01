@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { seedTestUsers, signInAs } from "./helpers";
+import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let agent: string;
@@ -175,6 +175,7 @@ describe("hostile text is stored and returned literally (plain text, never HTML)
       const { ticket } = await res.json();
       expect(ticket.subject).toBe(text);
       expect(ticket.body).toBe(text);
+      await giveTicketTo(ticket.id);
       const fetched = await readTicket(ticket.id);
       expect(fetched.subject).toBe(text);
       expect(fetched.body).toBe(text);
@@ -236,6 +237,7 @@ describe("reply, assign and triage bodies", () => {
   let id: number;
   beforeEach(async () => {
     id = (await (await postTicket(goodTicket)).json()).ticket.id;
+    await giveTicketTo(id);
   });
   const reply = async (body: unknown) => {
     const { POST } = await import("@/app/api/tickets/[id]/replies/route");
