@@ -1,0 +1,105 @@
+name: Deploy staging
+
+# Runs after CI succeeds for a push to `staging`, then runs the Playwright smoke suite against it.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy staging over SSH
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ vars.STAGING_HOSTNAME }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'ubuntu' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'sift-staging' }}
+      DEPLOY_BRANCH: staging
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      STAGING_HOSTNAME: ${{ vars.STAGING_HOSTNAME }}
+    steps:
+      - name: Check configuration
+        env:
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: |
+          for v in DEPLOY_HOST STAGING_HOSTNAME SMOKE_EMAIL SMOKE_PASSWORD; do
+            if [ -z "${!v}" ]; then echo "::error::$v is not set in the staging environment"; exit 1; fi
+          done
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::DEPLOY_KNOWN_HOSTS not set; trusting the host key on first use"
+            ssh-keyscan -T 10 "$DEPLOY_HOST" > ~/.ssh/known_hosts
+          fi
+      # Its own checkout, .env and Compose project (sift-staging); production's stack is never touched.
+      - name: Pull and restart the staging stack
+        run: |
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$DEPLOY_PATH" "$DEPLOY_BRANCH" "$EXPECTED_SHA" <<'REMOTE'
+          set -euo pipefail
+          cd "$1"
+          git fetch -q origin
+          git checkout -q "$2"
+          git pull -q --ff-only origin "$2"
+          echo "Server HEAD: $(git rev-parse HEAD) (CI commit: $3)"
+          docker compose -f compose.staging.yaml up -d --build
+          REMOTE
+      - name: Health check
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$STAGING_HOSTNAME/api/health" || true)
+            echo "attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::https://$STAGING_HOSTNAME/api/health did not return 200."
+          exit 1
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Smoke tests
+        env:
+          SMOKE_BASE_URL: https://${{ vars.STAGING_HOSTNAME }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          SMOKE_WEBHOOK_SECRET: ${{ secrets.SMOKE_WEBHOOK_SECRET }}
+        run: npx playwright test --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

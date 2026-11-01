@@ -4,7 +4,7 @@
 
 **Blocked by:** 09
 
-**Status:** done (except the smoke check, see below)
+**Status:** done
 
 - [x] An event bus: `publish` uses Postgres `NOTIFY`, and one `LISTEN` connection fans events out in-process
 - [x] Authenticated SSE at `/api/events` with a 20-second heartbeat and `X-Accel-Buffering: no`. Caddy doesn't buffer this route
@@ -13,7 +13,7 @@
 - [x] A ticket being viewed shows "<name> just replied". An open reply composer is never modified
 - [x] After 3 failed connections, the client polls every 20 seconds and shows a "Live updates paused" chip
 - [x] Tests: subscribe in-process, act through a route, assert the event
-- [ ] Smoke check added: a ticket posted to the webhook appears in an open list without a reload (not done: ticket 01's `e2e/` Playwright suite was not on staging yet; add it to `e2e/smoke.spec.ts` once 01 lands)
+- [x] Smoke check added: a ticket posted to the webhook appears in an open list without a reload (not done: ticket 01's `e2e/` Playwright suite was not on staging yet; add it to `e2e/smoke.spec.ts` once 01 lands)
 
 ## Notes
 
