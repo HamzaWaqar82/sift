@@ -13,7 +13,7 @@
 - [x] *Mine* is the default view. *Needs an owner* lists unassigned tickets, overdue first
 - [x] `assigned_by` recorded. Claim and release are audited and publish events
 - [x] Tests: one parametrised test per matrix row in scope, plus two concurrent claims
-- [ ] Smoke check added: claim a ticket from *Needs an owner*
+- [x] Smoke check added: claim a ticket from *Needs an owner*
 
 ## Notes
 
