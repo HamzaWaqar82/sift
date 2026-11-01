@@ -33,7 +33,22 @@ describe("sample ticket seed", () => {
       source: "webhook",
       assignee_id: null,
     });
-    expect(row.created_at.toISOString()).toBe(new Date(first.received_at).toISOString());
+    // Seeded in the samples' order, aged relative to the seed run.
+    expect(rows.map((r) => r.external_message_id)).toEqual(
+      [...samples].sort((a, b) => Date.parse(a.received_at) - Date.parse(b.received_at)).map((s) => s.message_id),
+    );
+  });
+
+  it("spreads ticket ages so some are overdue and some are not", async () => {
+    await seedSampleTickets(process.env.DATABASE_URL!);
+    const { overdueCount } = await import("@/lib/tickets/overdue");
+    const [{ n }] = await sql`select count(*)::int as n from tickets`;
+    const [{ newest }] = await sql`select max(last_inbound_at) as newest from tickets`;
+
+    const overdue = await overdueCount();
+    expect(overdue).toBeGreaterThanOrEqual(3);
+    expect(n - overdue).toBeGreaterThanOrEqual(3);
+    expect(Date.now() - newest.getTime()).toBeLessThan(2 * 3_600_000);
   });
 
   it("does not seed the emails reserved for the live webhook demo", async () => {

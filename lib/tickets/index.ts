@@ -49,7 +49,12 @@ export type TriageSummary =
 export type TicketListItem = Pick<
   Ticket,
   "id" | "customerEmail" | "customerName" | "subject" | "source" | "status" | "createdAt" | "updatedAt"
-> & { assignee: Assignee; triage: TriageSummary };
+> & {
+  assignee: Assignee;
+  triage: TriageSummary;
+  /** When the customer's unanswered message arrived, if the ticket is overdue; null otherwise. */
+  overdueWaitingSince: Date | null;
+};
 
 /** A valid triage result with the help article it cites (null: the draft is ungrounded). */
 export type CurrentTriage = {

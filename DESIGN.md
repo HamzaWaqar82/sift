@@ -26,6 +26,9 @@ colors:
   carbon: "#4b2e83"
   lilac: "#d9cfee"
   lilac-soft: "#eee9f8"
+  overdue: "#f28c28"
+  overdue-ink: "#9a3d00"
+  overdue-tint: "#fdecdc"
   warn-ink: "#7a4b00"
   warn-tint: "#fbf0d6"
   ok-ink: "#19613f"
@@ -258,6 +261,7 @@ A navy-on-paper palette: one dominant ink, one rationed alarm red, one data purp
 ### Tertiary
 - **Carbon Purple** (carbon): numerals only (ticket numbers, ages, times, counts, character counters, article slugs), the REPLIED stamp, the DRAFT rubber stamp, and the "AI draft, edited" label on carbon copies.
 - **Carbon Lilac** (lilac): sent replies (carbon copies), the SENT stamp backing, text selection. **Lilac Soft** is the lighter companion.
+- **Overdue Orange** (overdue, overdue-ink, overdue-tint): only the overdue marker. The row badge is overdue-ink on overdue-tint; the header count is navy on overdue. Never red: red stays rationed to HIGH urgency and Send.
 
 ### Neutral
 - **Stock White** (ground): the page.
@@ -342,6 +346,7 @@ Tactile and square, labelled in condensed caps.
 - **Active filter chip:** navy-tint with navy border, 28px, 13px medium text and an X; hover fills navy.
 - **Filter trigger:** 32px outlined control with condensed caps label, summary and chevron; opens a native popover listing options with square (multi) or round (single) marks.
 - **Urgency tab:** 20px chamfered chip in condensed caps: HIGH red filled, MEDIUM navy outline, LOW soft outline in ink-2.
+- **Overdue badge:** 18px chip before the subject: condensed caps "OVERDUE" plus the wait in mono ("1d 4h"), overdue-ink on overdue-tint with an overdue-ink hairline.
 
 ### Cards / Containers (Coupons)
 - **Corner Style:** 4px.

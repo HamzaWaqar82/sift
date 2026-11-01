@@ -12,7 +12,7 @@ export const VIEW_NAME_MAX = 40;
 
 export type SavedView = { id: number; name: string; params: Record<string, string>; createdAt: Date; updatedAt: Date };
 
-const PARAM_KEYS = ["view", "q", "status", "assignee", "category", "urgency", "source", "sort", "limit"] as const;
+const PARAM_KEYS = ["view", "q", "status", "assignee", "category", "urgency", "source", "overdue", "sort", "limit"] as const;
 
 /**
  * The list state a view stores. Filter values are checked by the same parser as GET /api/tickets,
@@ -29,7 +29,7 @@ export const viewParamsSchema = z
       ctx.addIssue({ code: "custom", path: ["limit"], message: "limit must be one of: 20, 50, 100" });
     }
     const list = new URLSearchParams();
-    for (const k of ["q", "status", "assignee", "category", "urgency", "source", "sort"] as const) if (p[k]) list.set(k, p[k]!);
+    for (const k of ["q", "status", "assignee", "category", "urgency", "source", "overdue", "sort"] as const) if (p[k]) list.set(k, p[k]!);
     const parsed = parseListQuery(list, 1);
     if (!parsed.ok) for (const [k, message] of Object.entries(parsed.fields)) ctx.addIssue({ code: "custom", path: [k], message });
   })

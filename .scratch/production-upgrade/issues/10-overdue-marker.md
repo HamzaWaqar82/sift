@@ -4,11 +4,11 @@
 
 **Blocked by:** 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An *Overdue 1d 4h* badge before the subject in the inbox, table and board views
-- [ ] `overdue=1` filter with a removable chip, combinable with every other filter
-- [ ] Overdue count in the header, in an orange tone (not urgency red)
-- [ ] Closed tickets are never overdue. A new customer message restarts the clock
-- [ ] Seed data spreads ticket ages so overdue tickets can be seen right away
-- [ ] Tests: the rule's boundaries, the filter, the count, closed tickets excluded, re-arming
+- [x] An *Overdue 1d 4h* badge before the subject in the inbox, table and board views
+- [x] `overdue=1` filter with a removable chip, combinable with every other filter
+- [x] Overdue count in the header, in an orange tone (not urgency red)
+- [x] Closed tickets are never overdue. A new customer message restarts the clock
+- [x] Seed data spreads ticket ages so overdue tickets can be seen right away
+- [x] Tests: the rule's boundaries, the filter, the count, closed tickets excluded, re-arming

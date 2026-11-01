@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogOut, Plus } from "lucide-react";
 import { Suspense } from "react";
 import { isAdmin, requirePageUser } from "@/lib/auth";
+import { overdueCount } from "@/lib/tickets/overdue";
 import { Wordmark } from "../_components/logo";
 import { BandSearch } from "./_components/band-search";
 import { InboxKeys } from "./_components/inbox-keys";
@@ -32,6 +33,7 @@ function SpeedStripe() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requirePageUser();
+  const overdue = await overdueCount();
   const initials = user.name
     .split(/\s+/)
     .map((p) => p[0])
@@ -66,6 +68,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
             <div className="order-2 mb-2.5 ml-auto flex items-center gap-2 sm:gap-3 md:order-4 md:ml-0">
               <LiveStatusChip />
+              {overdue > 0 && (
+                <Link
+                  href="/?overdue=1"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] bg-overdue px-2 text-ink transition-colors duration-150 hover:bg-white"
+                  title={`${overdue} overdue ${overdue === 1 ? "ticket" : "tickets"}: show them`}
+                >
+                  <span className="font-display text-xs font-semibold uppercase tracking-[0.08em]">Overdue</span>
+                  <span className="font-mono text-xs font-medium tabular-nums">{overdue}</span>
+                </Link>
+              )}
               <Link
                 href="/tickets/new"
                 className="btn btn-sm border-white bg-transparent text-white hover:bg-white hover:text-ink"

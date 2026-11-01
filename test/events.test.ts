@@ -141,6 +141,23 @@ describe("event bus", () => {
     expect((await assign(null)).status).toBe(200);
     expect(await eventOf("ticket.released")).toEqual({ type: "ticket.released", ticketId: id });
   });
+
+  it("publishes note.created without the note text", async () => {
+    const id = await newTicketId();
+    const { POST } = await import("@/app/api/tickets/[id]/notes/route");
+    const res = await POST(
+      new Request(`http://localhost/api/tickets/${id}/notes`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: alice },
+        body: JSON.stringify({ body: "Customer is on the legacy plan." }),
+      }),
+      ctx(id),
+    );
+    expect(res.status).toBe(201);
+    const [{ id: aliceId }] = await sql`select id from users where email = 'alice@sift.local'`;
+    expect(await eventOf("note.created")).toMatchObject({ ticketId: id, authorId: aliceId });
+    expect(JSON.stringify(received)).not.toContain("legacy plan");
+  });
 });
 
 describe("GET /api/events", () => {
