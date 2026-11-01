@@ -5,6 +5,7 @@ import { listNotes } from "@/lib/notes";
 import { getTicket, listAssignableUsers } from "@/lib/tickets";
 import { getLatestAttempt } from "@/lib/triage";
 import { LABELS } from "../../_lib/params";
+import { JustReplied } from "../../_components/live-updates";
 import { stampTime, timeAgo } from "../../_components/ticket-labels";
 import { WithArticlePanel } from "./article-panel";
 import { TicketActions } from "./close-button";
@@ -144,6 +145,8 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
       <Thread messages={thread} notes={notes} customer={ticket.customerName ?? ticket.customerEmail} />
 
       <NoteForm ticketId={ticket.id} />
+
+      <JustReplied key={ticket.id} ticketId={ticket.id} />
 
       <TriagePanelClient ticketId={ticket.id} initial={initialTriage} canRegenerate={admin} />
 

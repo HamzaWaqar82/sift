@@ -3,6 +3,7 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
+import { publish } from "@/lib/events";
 import { messages, replies, tickets, users, type UserRef } from "@/lib/db/schema";
 import { getTicket, getValidTriage } from "@/lib/tickets";
 import { cleanLine, cleanText } from "@/lib/text";
@@ -91,20 +92,30 @@ export async function sendReply(
       .set({ status: "replied", updatedAt: sql`now()`, lastOutboundAt: sql`now()` })
       .where(eq(tickets.id, ticketId))
       .returning({ customerEmail: tickets.customerEmail, subject: tickets.subject, lastOutboundAt: tickets.lastOutboundAt });
-    await tx.insert(messages).values({
-      ticketId,
-      direction: "outbound",
-      authorId: userId,
-      toAddress: ticket.customerEmail,
-      subject: `Re: ${ticket.subject}`,
-      bodyText: input.body,
-      occurredAt: ticket.lastOutboundAt!,
-      status: "sent",
-      attempts: 1,
-      aiDraft,
-      edited,
-      idempotencyKey: input.idempotencyKey,
-    });
+    const [message] = await tx
+      .insert(messages)
+      .values({
+        ticketId,
+        direction: "outbound",
+        authorId: userId,
+        toAddress: ticket.customerEmail,
+        subject: `Re: ${ticket.subject}`,
+        bodyText: input.body,
+        occurredAt: ticket.lastOutboundAt!,
+        status: "sent",
+        attempts: 1,
+        aiDraft,
+        edited,
+        idempotencyKey: input.idempotencyKey,
+      })
+      .returning({ id: messages.id });
+    const [author] = await tx.select({ name: users.name }).from(users).where(eq(users.id, userId));
+    const authorName = author?.name ?? null;
+    await publish(
+      { type: "message.created", ticketId, messageId: message.id, direction: "outbound", authorId: userId, authorName },
+      tx,
+    );
+    await publish({ type: "ticket.updated", ticketId, status: "replied" }, tx);
     return true;
   });
 
