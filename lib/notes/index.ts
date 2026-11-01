@@ -3,6 +3,7 @@
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
+import { publish } from "@/lib/events";
 import { internalNotes, tickets, users, type UserRef } from "@/lib/db/schema";
 import { cleanText } from "@/lib/text";
 
@@ -35,6 +36,7 @@ export async function addNote(ticketId: number, authorId: number, body: string):
   if (!ticket) return null;
   const [row] = await db.insert(internalNotes).values({ ticketId, authorId, body }).returning();
   const [author] = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, authorId));
+  await publish({ type: "note.created", ticketId, noteId: row.id, authorId });
   return { id: row.id, ticketId, author, body: row.body, createdAt: row.createdAt };
 }
 
