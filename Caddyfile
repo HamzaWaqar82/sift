@@ -2,3 +2,9 @@
 	encode gzip
 	reverse_proxy app:3000
 }
+
+# Staging app from the sift-staging Compose project, over the shared sift-edge network.
+{$STAGING_HOSTNAME:staging.localhost} {
+	encode gzip
+	reverse_proxy sift-staging-app:3000
+}

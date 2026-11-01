@@ -16,3 +16,7 @@ next-env.d.ts
 .impeccable/direction*.json
 .impeccable/sketches/
 .impeccable/questions/
+
+# Playwright
+test-results/
+playwright-report/
