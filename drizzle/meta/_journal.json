@@ -47,8 +47,22 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1793544046191,
-      "tag": "0006_jobs_and_dev_mailbox",
+      "when": 1793525623817,
+      "tag": "0006_better_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793525652368,
+      "tag": "0007_move_password_hashes",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793544712853,
+      "tag": "0008_noisy_ted_forrester",
       "breakpoints": true
     }
   ]

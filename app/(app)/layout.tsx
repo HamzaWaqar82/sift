@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogOut, Plus } from "lucide-react";
+import { LogOut, MonitorOff, Plus } from "lucide-react";
 import { Suspense } from "react";
 import { isAdmin, requirePageUser } from "@/lib/auth";
 import { overdueCount } from "@/lib/tickets/overdue";
@@ -107,6 +107,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 >
                   <LogOut className="size-4" strokeWidth={1.5} aria-hidden="true" />
                   <span className="sr-only">Sign out</span>
+                </button>
+              </form>
+              <form action="/api/auth/sign-out-everywhere" method="post">
+                <button
+                  type="submit"
+                  className="grid size-8 place-items-center rounded-[var(--radius-control)] text-band-ink transition-colors duration-150 hover:bg-white/10 hover:text-white"
+                  title="Sign out everywhere"
+                >
+                  <MonitorOff className="size-4" strokeWidth={1.5} aria-hidden="true" />
+                  <span className="sr-only">Sign out everywhere</span>
                 </button>
               </form>
             </div>

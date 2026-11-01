@@ -71,9 +71,9 @@ Refresh the browser: **How do I add a new team member?** is at the top, source `
 
 ```sh
 curl -s -o /dev/null -c agent.jar -H 'content-type: application/json' \
-  -d "{\"email\":\"alice@sift.local\",\"password\":\"$SEED_PASSWORD_ALICE\"}" "$BASE/api/auth/sign-in"
+  -d "{\"email\":\"alice@sift.local\",\"password\":\"$SEED_PASSWORD_ALICE\"}" "$BASE/api/auth/sign-in/email"
 curl -s -c admin.jar -o /dev/null -H 'content-type: application/json' \
-  -d "{\"email\":\"admin@sift.local\",\"password\":\"$SEED_PASSWORD_ADMIN\"}" "$BASE/api/auth/sign-in"
+  -d "{\"email\":\"admin@sift.local\",\"password\":\"$SEED_PASSWORD_ADMIN\"}" "$BASE/api/auth/sign-in/email"
 
 curl -s -w '  HTTP %{http_code}\n' -b agent.jar -H 'content-type: application/json' \
   -d '{"assigneeId":4}' "$BASE/api/tickets/1/assign"     # 403 {"error":"You do not have permission to do that"}
