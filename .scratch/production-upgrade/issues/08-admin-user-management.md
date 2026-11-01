@@ -4,10 +4,10 @@
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] User list shows role, availability, and active or deactivated status
-- [ ] Role change revokes that user's sessions
-- [ ] Deactivation (never deletion) revokes sessions and sets the user Away. Releasing their tickets comes in 21
-- [ ] Audit log view for admins only
-- [ ] Tests: agent rejected on every admin action, and sessions are actually revoked
+- [x] User list shows role, availability, and active or deactivated status
+- [x] Role change revokes that user's sessions
+- [x] Deactivation (never deletion) revokes sessions and sets the user Away. Releasing their tickets comes in 21
+- [x] Audit log view for admins only
+- [x] Tests: agent rejected on every admin action, and sessions are actually revoked

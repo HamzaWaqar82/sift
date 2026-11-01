@@ -19,6 +19,11 @@ x-app-env: &app-env
   SEED_PASSWORD_BEN: ${SEED_PASSWORD_BEN:?set SEED_PASSWORD_BEN}
   SEED_PASSWORD_CHLOE: ${SEED_PASSWORD_CHLOE:?set SEED_PASSWORD_CHLOE}
   SEED_PASSWORD_DEV: ${SEED_PASSWORD_DEV:?set SEED_PASSWORD_DEV}
+  # A staging stack sets APP_ENV=staging in its .env; /dev/mailbox never exists in production.
+  APP_ENV: ${APP_ENV:-production}
+  # Until the gmail adapter lands (ticket 13) mail is captured; ticket 13 makes gmail mandatory here.
+  MAIL_TRANSPORT: ${MAIL_TRANSPORT:-capture}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sift Support}
 
 services:
   db:
@@ -50,6 +55,18 @@ services:
     build:
       context: .
       target: runner
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Background jobs (and later the IMAP reader). Same image as the app, single instance.
+  worker:
+    build:
+      context: .
+      target: runner
+    command: ["node", "worker.mjs"]
     restart: unless-stopped
     environment: *app-env
     depends_on:
