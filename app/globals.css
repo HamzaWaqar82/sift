@@ -323,6 +323,15 @@
   .stamp[data-state="closed"] {
     color: var(--color-jet-ink);
   }
+  /* A reply not yet accepted by the mail server: dashed, because it has not happened yet. */
+  .stamp[data-state="pending"] {
+    color: var(--color-ink-2);
+    border-style: dashed;
+  }
+  .stamp[data-state="failed"] {
+    color: var(--color-jet-ink);
+    background: var(--color-jet-tint);
+  }
   /* The large, rotated rubber stamp (SENT, VOID, DRAFT). */
   .rubber {
     display: inline-flex;

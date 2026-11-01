@@ -141,11 +141,14 @@ describe("sending a reply", () => {
     expect(reply).toMatchObject({ aiDraft: "Sorry about the export. Please retry.", edited: true });
   });
 
-  it("sets the ticket to replied", async () => {
+  it("sets the ticket to replied once the queued reply is sent", async () => {
     const id = await newTicket();
     expect(await ticketStatus(id)).toBe("open");
 
     await sendReply(id, { body: "Done.", idempotencyKey: newKey() });
+    expect(await ticketStatus(id)).toBe("open");
+    const { runDueJobs } = await import("@/lib/jobs");
+    await runDueJobs();
 
     expect(await ticketStatus(id)).toBe("replied");
   });

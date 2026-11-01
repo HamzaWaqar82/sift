@@ -69,3 +69,28 @@ test("a ticket can be claimed from Needs an owner", async ({ page, request }) =>
   await page.getByRole("button", { name: "Claim ticket" }).click();
   await expect(page.getByRole("button", { name: "Send reply" })).toBeVisible();
 });
+
+test("a sent reply reaches the dev mailbox", async ({ page, request }) => {
+  const secret = process.env.SMOKE_WEBHOOK_SECRET;
+  test.skip(!secret, "SMOKE_WEBHOOK_SECRET is not set");
+  const subject = `Smoke reply ${Date.now()}`;
+  const res = await request.post("/api/webhook", {
+    headers: { "x-webhook-secret": secret! },
+    data: { from: { email: "smoke@example.com", name: "Smoke Test" }, subject, body: "Reply to me.", message_id: `<smoke-reply-${Date.now()}@sift.test>` },
+  });
+  expect(res.status()).toBe(201);
+  const ticketId = (await res.json()).ticket.id;
+  await page.goto("/sign-in");
+  await page.getByLabel("Email").fill(process.env.SMOKE_EMAIL!);
+  await page.getByLabel("Password").fill(process.env.SMOKE_PASSWORD!);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await page.goto(`/tickets/${ticketId}`);
+  await page.getByRole("button", { name: "Claim ticket" }).click();
+  await page.getByLabel("Reply to the customer").fill("Sent by the staging smoke suite.");
+  await page.getByRole("button", { name: "Send reply" }).click();
+  // The worker hands it to the capture transport; the live update then stamps it Sent.
+  await expect(page.getByRole("article", { name: /^Reply sent by/ })).toBeVisible({ timeout: 30_000 });
+  await page.goto("/dev/mailbox");
+  await expect(page.getByText(`Re: ${subject}`).first()).toBeVisible();
+});

@@ -1,6 +1,7 @@
 import type { Message } from "@/lib/messages";
 import type { InternalNote } from "@/lib/notes";
 import { stampTime } from "../../_components/ticket-labels";
+import { DeliveryState } from "./delivery-state";
 import { SentStamp } from "./sent-stamp";
 
 /**
@@ -8,7 +9,18 @@ import { SentStamp } from "./sent-stamp";
  * copy stamped SENT with who and when, and whether the AI draft was sent as-is or edited. Each
  * later customer message is plain white paper ruled in navy, so the two sides never blur.
  */
-export function Thread({ messages, notes = [], customer }: { messages: Message[]; notes?: InternalNote[]; customer: string }) {
+export function Thread({
+  messages,
+  notes = [],
+  customer,
+  canRetry = false,
+}: {
+  messages: Message[];
+  notes?: InternalNote[];
+  customer: string;
+  /** The viewer may retry a failed reply (the owner or an admin). */
+  canRetry?: boolean;
+}) {
   // Notes sit inline by time. They are a separate kind of entry, never part of `messages`.
   const items = [
     ...messages.map((m) => ({ kind: "message" as const, at: m.occurredAt, id: m.id, m })),
@@ -28,7 +40,7 @@ export function Thread({ messages, notes = [], customer }: { messages: Message[]
             </li>
           ) : (
             <li key={`m${it.id}`}>
-              {it.m.direction === "outbound" ? <CarbonCopy m={it.m} /> : <CustomerMessage m={it.m} customer={customer} />}
+              {it.m.direction === "outbound" ? <CarbonCopy m={it.m} canRetry={canRetry} /> : <CustomerMessage m={it.m} customer={customer} />}
             </li>
           ),
         )}
@@ -75,11 +87,11 @@ function NoteCard({ n }: { n: InternalNote }) {
   );
 }
 
-function CarbonCopy({ m }: { m: Message }) {
+function CarbonCopy({ m, canRetry }: { m: Message; canRetry: boolean }) {
   const name = m.author?.name ?? "Former staff";
   return (
     <article
-      aria-label={`Reply sent by ${name}`}
+      aria-label={m.status === "sent" ? `Reply sent by ${name}` : `Reply by ${name}, ${m.status}`}
       className="relative overflow-hidden rounded-[var(--radius-coupon)] border border-carbon/40 bg-lilac"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-carbon/50 px-4 py-2">
@@ -94,7 +106,11 @@ function CarbonCopy({ m }: { m: Message }) {
       <div className="grid gap-4 px-4 py-4 sm:grid-cols-[1fr_auto]">
         <div className="max-w-[72ch] whitespace-pre-wrap break-words text-ink">{m.bodyText}</div>
         <div className="self-start justify-self-end sm:pt-1">
-          <SentStamp sentKey={m.idempotencyKey} name={name} time={stampTime(m.occurredAt)} iso={m.occurredAt.toISOString()} />
+          {m.status === "sent" ? (
+            <SentStamp sentKey={m.idempotencyKey} name={name} time={stampTime(m.occurredAt)} iso={m.occurredAt.toISOString()} />
+          ) : (
+            <DeliveryState ticketId={m.ticketId} messageId={m.id} status={m.status ?? "queued"} lastError={m.lastError} canRetry={canRetry} />
+          )}
         </div>
       </div>
     </article>
