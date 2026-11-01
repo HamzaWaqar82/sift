@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogOut, MonitorOff, Plus } from "lucide-react";
+import { LogOut, MonitorOff, Plus, ShieldCheck } from "lucide-react";
 import { Suspense } from "react";
 import { isAdmin, requirePageUser } from "@/lib/auth";
 import { overdueCount } from "@/lib/tickets/overdue";
@@ -73,6 +73,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               >
                 <span className="font-display text-xs font-semibold uppercase tracking-[0.08em]">Overdue</span>
                 <span className="font-mono text-xs font-medium tabular-nums">{overdue}</span>
+              </Link>
+            )}
+            {isAdmin(user) && (
+              <Link
+                href="/admin"
+                className="inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-band-ink transition-colors duration-150 hover:bg-white/10 hover:text-white"
+                title="Admin: users and audit log"
+              >
+                <ShieldCheck className="size-4" strokeWidth={1.5} aria-hidden="true" />
+                <span className="hidden font-display text-xs font-semibold uppercase tracking-[0.08em] sm:inline">Admin</span>
+                <span className="sr-only sm:hidden">Admin</span>
               </Link>
             )}
             <Link
