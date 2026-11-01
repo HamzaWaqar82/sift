@@ -79,6 +79,9 @@ services:
     environment:
       # e.g. sift-203-0-113-10.sslip.io (resolves to 203.0.113.10)
       PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      # Staging (compose.staging.yaml) is proxied by this Caddy too. Unset, it falls back to a
+      # .localhost name, which Caddy serves with its internal CA and never asks Let's Encrypt for.
+      STAGING_HOSTNAME: ${STAGING_HOSTNAME:-staging.localhost}
     ports:
       - "80:80"
       - "443:443"
@@ -87,8 +90,14 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks: [default, edge]
     depends_on:
       - app
+
+networks:
+  # Shared with the staging project so this Caddy can reach its app; created here, external there.
+  edge:
+    name: sift-edge
 
 volumes:
   pgdata:
