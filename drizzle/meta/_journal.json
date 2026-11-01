@@ -57,6 +57,13 @@
       "when": 1793525652368,
       "tag": "0007_move_password_hashes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793545500705,
+      "tag": "0008_ownership",
+      "breakpoints": true
     }
   ]
 }

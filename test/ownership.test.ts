@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
+import { subscribe, type SiftEvent } from "@/lib/events";
 import { seedTestUsers, signInAs } from "./helpers";
 
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
@@ -126,11 +127,30 @@ describe("permission matrix", () => {
   });
 });
 
+/** Events published while `fn` runs (NOTIFY arrives asynchronously, so wait briefly). */
+async function eventsDuring(fn: () => Promise<unknown>): Promise<SiftEvent[]> {
+  const received: SiftEvent[] = [];
+  const unsubscribe = await subscribe((e) => received.push(e));
+  try {
+    await fn();
+    await new Promise((r) => setTimeout(r, 200));
+    return received;
+  } finally {
+    unsubscribe();
+  }
+}
+const auditRows = () => sql`select actor_id, action, ticket_id, target_user_id, metadata from audit_log where ticket_id = ${ticketId} order by id`;
+
 describe("claim", () => {
-  it("makes the claimer the owner, recorded as a claim", async () => {
-    const res = await call("claim", cookies.ben);
+  it("makes the claimer the owner, recorded as a claim, audited and published", async () => {
+    let res!: Response;
+    const events = await eventsDuring(async () => (res = await call("claim", cookies.ben)));
     expect((await res.json()).ticket.assignee).toMatchObject({ id: ids.ben, name: expect.any(String) });
     expect(await ticketRow()).toMatchObject({ assignee_id: ids.ben, assigned_by: "claim" });
+    expect(await auditRows()).toEqual([
+      { actor_id: ids.ben, action: "ticket_claimed", ticket_id: ticketId, target_user_id: ids.ben, metadata: null },
+    ]);
+    expect(events).toContainEqual({ type: "ticket.assigned", ticketId, assigneeId: ids.ben });
   });
 
   it("two concurrent claims: exactly one wins, the loser learns who", async () => {
@@ -188,9 +208,20 @@ describe("release", () => {
 
   it("an admin releasing someone's ticket records the owner, and a reason becomes a note", async () => {
     await own("alice");
-    const res = await call("release", cookies.admin, { reason: "  Alice is out this week  " });
+    let res!: Response;
+    const events = await eventsDuring(async () => (res = await call("release", cookies.admin, { reason: "  Alice is out this week  " })));
     expect(res.status).toBe(200);
+    expect(events).toContainEqual({ type: "ticket.released", ticketId });
     expect(await ticketRow()).toMatchObject({ released_from_user_id: ids.alice, release_reason: "Alice is out this week" });
+    expect(await auditRows()).toEqual([
+      {
+        actor_id: ids.admin,
+        action: "ticket_released",
+        ticket_id: ticketId,
+        target_user_id: ids.alice,
+        metadata: { reason: "Alice is out this week" },
+      },
+    ]);
     const notes = await sql`select author_id, body from internal_notes where ticket_id = ${ticketId}`;
     expect(notes).toEqual([{ author_id: ids.admin, body: expect.stringContaining("Alice is out this week") }]);
   });

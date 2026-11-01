@@ -64,10 +64,10 @@ describe("JSON body handling (every body-taking route)", () => {
       },
     },
     {
-      name: "POST /api/auth/sign-in",
+      name: "POST /api/auth/sign-in/email",
       call: async (raw) => {
-        const { POST } = await import("@/app/api/auth/sign-in/route");
-        return POST(new Request("http://localhost/api/auth/sign-in", { method: "POST", headers: { "x-forwarded-for": "10.77.0.1" }, body: raw }));
+        const { POST } = await import("@/app/api/auth/sign-in/email/route");
+        return POST(new Request("http://localhost/api/auth/sign-in/email", { method: "POST", headers: { "x-forwarded-for": "10.77.0.1" }, body: raw }));
       },
     },
     {
@@ -275,7 +275,7 @@ describe("reply, assign and triage bodies", () => {
   });
 
   it("sign-in: normalises the email and rejects junk without leaking details", async () => {
-    const { POST } = await import("@/app/api/auth/sign-in/route");
+    const { POST } = await import("@/app/api/auth/sign-in/email/route");
     const signIn = (body: unknown, ip: string) =>
       POST(new Request("http://localhost/x", { method: "POST", headers: { ...json, "x-forwarded-for": ip }, body: JSON.stringify(body) }));
     const { TEST_PASSWORDS } = await import("./helpers");
