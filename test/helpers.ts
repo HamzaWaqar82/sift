@@ -1,3 +1,4 @@
+import postgres from "postgres";
 import { seedUsers } from "../scripts/seed.mjs";
 
 /** One password per seeded account, as in production (SEED_PASSWORD_<NAME>). */
@@ -14,28 +15,61 @@ export function passwordFor(email: string): string {
   return TEST_PASSWORDS[email.split("@")[0].toLowerCase() as keyof typeof TEST_PASSWORDS];
 }
 
-/** Seeds the five staff accounts with the test passwords above. */
-export function seedTestUsers() {
-  return seedUsers(process.env.DATABASE_URL!, TEST_PASSWORDS);
+/** Clears the sign-in rate-limit counters, which live in the database and outlast a test run. */
+export async function resetRateLimits() {
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
+  try {
+    await sql`delete from rate_limits`;
+  } finally {
+    await sql.end();
+  }
 }
+
+/** Seeds the five staff accounts with the test passwords above, active, with fresh rate limits. */
+export async function seedTestUsers() {
+  await seedUsers(process.env.DATABASE_URL!, TEST_PASSWORDS);
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
+  try {
+    await sql`update users set deactivated_at = null where email like '%@sift.local'`;
+  } finally {
+    await sql.end();
+  }
+  await resetRateLimits();
+}
+
+/** Origin of the test app (APP_BASE_URL in setup-env); Better Auth's origin check expects it. */
+export const TEST_ORIGIN = "http://localhost";
 
 let ipCounter = 0;
 
-/** Signs in through the real endpoint and returns a Cookie header value. */
-export async function signInAs(email: string) {
-  const { POST } = await import("@/app/api/auth/sign-in/route");
+/** POSTs to Better Auth's real sign-in endpoint, as the sign-in form does. */
+export async function postSignIn(email: string, password: string, headers: Record<string, string> = {}) {
+  const { POST } = await import("@/app/api/auth/sign-in/email/route");
   ipCounter += 1;
-  const res = await POST(
-    new Request("http://localhost/api/auth/sign-in", {
+  return POST(
+    new Request(`${TEST_ORIGIN}/api/auth/sign-in/email`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        // A distinct address per sign-in so the in-memory rate limit never interferes.
+        origin: TEST_ORIGIN,
+        // A distinct address per sign-in so the per-IP rate limit never interferes.
         "x-forwarded-for": `10.9.${Math.floor(ipCounter / 250)}.${ipCounter % 250}`,
+        ...headers,
       },
-      body: JSON.stringify({ email, password: passwordFor(email) }),
+      body: JSON.stringify({ email, password }),
     }),
   );
+}
+
+/** Turns a response's session Set-Cookie into a Cookie request header, as a browser would ("" if none). */
+export function sessionCookieFrom(res: Response): string {
+  const setCookie = res.headers.getSetCookie().find((c) => c.includes(".session_token="));
+  return setCookie?.split(";")[0] ?? "";
+}
+
+/** Signs in through the real endpoint and returns a Cookie header value. */
+export async function signInAs(email: string) {
+  const res = await postSignIn(email, passwordFor(email));
   if (res.status !== 200) throw new Error(`sign-in failed for ${email}: ${res.status}`);
-  return (res.headers.get("set-cookie") ?? "").split(";")[0];
+  return sessionCookieFrom(res);
 }

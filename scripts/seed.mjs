@@ -24,8 +24,10 @@ export function passwordsFromEnv(env = process.env) {
 }
 
 /**
- * Upserts the staff accounts. `passwords` is keyed by account key (admin, alice, ben, chloe,
- * dev). Existing users get their hash replaced, so a changed password takes effect on re-seed.
+ * Upserts the staff accounts (marked email-verified) and their Better Auth credential rows in
+ * `account` (account_id = users.id::text, the bcrypt hash in `password`). `passwords` is keyed by
+ * account key (admin, alice, ben, chloe, dev). Existing users get their hash replaced, so a
+ * changed password takes effect on re-seed.
  */
 export async function seedUsers(url, passwords) {
   const missing = SEED_USERS.filter((u) => !passwords[u.key]).map((u) => u.passwordEnv);
@@ -34,11 +36,19 @@ export async function seedUsers(url, passwords) {
   try {
     for (const u of SEED_USERS) {
       const hash = await bcrypt.hash(passwords[u.key], BCRYPT_COST);
-      await sql`
-        insert into users (email, name, role, password_hash)
-        values (${u.email}, ${u.name}, ${u.role}, ${hash})
-        on conflict (email) do update
-          set name = excluded.name, role = excluded.role, password_hash = excluded.password_hash`;
+      await sql.begin(async (tx) => {
+        const [{ id }] = await tx`
+          insert into users (email, name, role, email_verified)
+          values (${u.email}, ${u.name}, ${u.role}, true)
+          on conflict (email) do update
+            set name = excluded.name, role = excluded.role, email_verified = true, updated_at = now()
+          returning id`;
+        await tx`
+          insert into account (account_id, provider_id, user_id, password)
+          values (${String(id)}, 'credential', ${id}, ${hash})
+          on conflict (provider_id, account_id) do update
+            set password = excluded.password, updated_at = now()`;
+      });
     }
   } finally {
     await sql.end();

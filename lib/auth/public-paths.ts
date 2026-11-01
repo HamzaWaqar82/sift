@@ -4,7 +4,7 @@
 // Public routes must do their own authentication (e.g. the webhook's shared secret).
 export const PUBLIC_PATHS = [
   "/sign-in", // sign-in page
-  "/api/auth/sign-in",
+  "/api/auth/sign-in", // POST /api/auth/sign-in/email
   "/api/auth/sign-out", // must work even with an expired session
   "/icon.svg", // favicon (also needed on the signed-out sign-in page)
   "/apple-icon", // apple-touch icon

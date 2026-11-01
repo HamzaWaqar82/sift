@@ -5,31 +5,28 @@
 //   const admin = await requireAdmin(req); if (admin instanceof Response) return admin; // 401/403
 // Pages / server components:
 //   const user = await requirePageUser();   // redirects to /sign-in when signed out
-import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
-import { cookies } from "next/headers";
+//
+// Every call resolves the session cookie against the `session` table (Better Auth), so a revoked
+// or expired session, or a deactivated user, is signed out immediately.
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { users, type UserRole } from "@/lib/db/schema";
-import { cookieValue, readSessionToken, SESSION_COOKIE } from "./session";
+import type { UserRole } from "@/lib/db/schema";
+import { getAuth } from "./better-auth";
 
 export type SessionUser = { id: number; email: string; name: string; role: UserRole };
 
-async function loadUser(id: number | null): Promise<SessionUser | null> {
-  if (id === null) return null;
-  const [row] = await getDb()
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role })
-    .from(users)
-    .where(eq(users.id, id))
-    .limit(1);
-  return row ?? null;
+async function userFromHeaders(h: Headers): Promise<SessionUser | null> {
+  const result = await getAuth().api.getSession({ headers: h });
+  if (!result || result.user.deactivatedAt) return null;
+  const { user } = result;
+  // Better Auth hands ids over as strings ("2"); Sift's are integers.
+  return { id: Number(user.id), email: user.email, name: user.name, role: user.role as UserRole };
 }
 
 /** The signed-in user for a route-handler request, or null. */
 export async function getCurrentUser(req: Request): Promise<SessionUser | null> {
-  const token = cookieValue(req.headers.get("cookie"), SESSION_COOKIE);
-  return loadUser(await readSessionToken(token));
+  return userFromHeaders(req.headers);
 }
 
 /** The signed-in user, or a 401 JSON Response to return as-is. */
@@ -55,8 +52,7 @@ export async function requireAdmin(req: Request): Promise<SessionUser | Response
 
 /** The signed-in user in a server component / server action, or null. */
 export async function getPageUser(): Promise<SessionUser | null> {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  return loadUser(await readSessionToken(token));
+  return userFromHeaders(await headers());
 }
 
 /** The signed-in user in a server component; redirects to /sign-in when signed out. */
@@ -64,19 +60,4 @@ export async function requirePageUser(): Promise<SessionUser> {
   const user = await getPageUser();
   if (!user) redirect("/sign-in");
   return user;
-}
-
-// A real cost-10 hash of a throwaway string, so unknown emails cost the same bcrypt time as known ones.
-const DUMMY_HASH = "$2b$10$uTLG9i9T8cEa84mFwduvCuhKK7St1mYKTWXWVhDhJkBte2ocdW9dy";
-
-/** Checks an email/password pair against the seeded users. */
-export async function verifyCredentials(email: string, password: string): Promise<SessionUser | null> {
-  const [row] = await getDb()
-    .select()
-    .from(users)
-    .where(eq(users.email, email.trim().toLowerCase()))
-    .limit(1);
-  const ok = await bcrypt.compare(password, row?.passwordHash ?? DUMMY_HASH);
-  if (!row || !ok) return null;
-  return { id: row.id, email: row.email, name: row.name, role: row.role };
 }
