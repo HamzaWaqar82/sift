@@ -76,6 +76,11 @@ export function SignInForm() {
           aria-invalid={problem?.kind === "error" || undefined}
           className="input"
         />
+        <p className="mt-1 text-xs">
+          <a href="/reset-password" className="text-ink-2 underline">
+            Forgot your password?
+          </a>
+        </p>
       </div>
       <div aria-live="polite">
         {problem && (
