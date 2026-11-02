@@ -36,6 +36,8 @@ export type NewTicket = {
   externalMessageId?: string | null;
   /** Defaults to now (the webhook and form always use now). Tests set it for deterministic order. */
   createdAt?: Date;
+  /** Extra headers and parts of an inbound email, stored on the first message. */
+  email?: { toAddress?: string | null; bodyHtml?: string | null; inReplyTo?: string | null; references?: string | null };
 };
 
 export type Ticket = typeof tickets.$inferSelect;
@@ -161,9 +163,13 @@ export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; 
       ticketId: ticket.id,
       direction: "inbound",
       fromAddress: ticket.customerEmail,
+      toAddress: input.email?.toAddress ?? null,
       subject: ticket.subject,
       bodyText: ticket.body,
+      bodyHtml: input.email?.bodyHtml ?? null,
       messageId: ticket.externalMessageId,
+      inReplyTo: input.email?.inReplyTo ?? null,
+      references: input.email?.references ?? null,
       occurredAt: ticket.createdAt,
     });
     const [withInbound] = await tx

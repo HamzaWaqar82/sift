@@ -2,7 +2,7 @@
 // samples/emails.json and samples/live/*.json). The route handler is app/api/webhook/route.ts.
 import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import type { NewTicket } from "@/lib/tickets";
+import type { InboundMail } from "@/lib/inbound";
 import { emailField, lineField, optionalLineField, textField } from "@/lib/validation";
 
 export const WEBHOOK_SECRET_HEADER = "x-webhook-secret";
@@ -40,16 +40,19 @@ export const inboundEmailSchema = z
 export type InboundEmail = z.infer<typeof inboundEmailSchema>;
 
 /**
- * Maps a validated inbound email to a new webhook ticket. The ticket's createdAt is the server's
- * receive time; the sender's received_at is untrusted and never decides list order.
+ * Maps a validated JSON email to the shared ingest input. Times are the server's receive time;
+ * the sender's received_at is untrusted and never decides list order.
  */
-export function toNewTicket(email: InboundEmail): NewTicket {
+export function toInboundMail(email: InboundEmail): InboundMail {
   return {
-    customerEmail: email.from.email,
-    customerName: email.from.name || null,
+    messageId: email.message_id,
+    from: { email: email.from.email, name: email.from.name || null },
+    to: null,
     subject: email.subject,
-    body: email.body,
+    text: email.body,
+    html: null,
+    inReplyTo: null,
+    references: [],
     source: "webhook",
-    externalMessageId: email.message_id,
   };
 }

@@ -80,7 +80,9 @@ describe("POST /api/webhook", () => {
 
   it("orders tickets by when the server received them, ignoring the sender's received_at", async () => {
     const first = await (await post({ ...sample, message_id: "<a@x>", received_at: "2099-01-01T00:00:00Z" })).json();
-    const second = await (await post({ ...sample, message_id: "<b@x>", received_at: "2001-01-01T00:00:00Z" })).json();
+    const second = await (
+      await post({ ...sample, subject: "Another question", message_id: "<b@x>", received_at: "2001-01-01T00:00:00Z" })
+    ).json();
 
     expect((await listedTickets()).map((t) => t.id)).toEqual([second.ticket.id, first.ticket.id]);
   });
@@ -130,15 +132,28 @@ describe("POST /api/webhook", () => {
     expect(listed[0].subject).toBe(sample.subject);
   });
 
-  it("a follow-up from the same sender with a new message id is a new ticket (no threading)", async () => {
-    await post(sample);
+  it("a follow-up from the same sender threads into the ticket through the shared ingest path", async () => {
+    const { ticket } = await (await post(sample)).json();
     const res = await post({
       ...sample,
       subject: `Re: ${sample.subject}`,
+      body: "Any update?",
       message_id: "<mr-live-01-followup@hollowayfoods.com>",
     });
-    expect(res.status).toBe(201);
-    expect(await listedTickets()).toHaveLength(2);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ created: false, ticket: { id: ticket.id } });
+    expect(await listedTickets()).toHaveLength(1);
+    expect((await sql`select count(*)::int as n from messages where ticket_id = ${ticket.id}`)[0].n).toBe(2);
+  });
+
+  it("is refused in production", async () => {
+    process.env.APP_ENV = "production";
+    try {
+      expect((await post(sample)).status).toBe(404);
+    } finally {
+      delete process.env.APP_ENV;
+    }
+    expect(await listedTickets()).toHaveLength(0);
   });
 
   it("rejects a body over 64 KiB with 413", async () => {

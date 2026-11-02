@@ -20,7 +20,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["agent", "admin"]);
-export const ticketSource = pgEnum("ticket_source", ["webhook", "form"]);
+export const ticketSource = pgEnum("ticket_source", ["webhook", "form", "email"]);
 export const ticketStatus = pgEnum("ticket_status", ["open", "replied", "closed"]);
 export const triageCategory = pgEnum("triage_category", [
   "billing",
@@ -139,7 +139,7 @@ export const auditLog = pgTable(
   (t) => [index("audit_log_created_idx").on(t.createdAt.desc(), t.id.desc())],
 );
 
-/** A customer conversation. Every inbound email or form submission creates a new ticket (threading comes later). */
+/** A customer conversation. A form submission or an unmatched inbound email starts one; replies thread in (lib/inbound). */
 export const tickets = pgTable(
   "tickets",
   {
@@ -411,6 +411,21 @@ export const suppressedEmails = pgTable("suppressed_emails", {
   email: text("email").primaryKey(),
   reason: text("reason").notNull(),
   createdAt: tsMs("created_at").notNull().defaultNow(),
+});
+
+/**
+ * Every bounce notice we received, matched or not. Bounces never become tickets, so this is where
+ * one is kept (an unmatched bounce is not thrown away silently) and where a redelivery is deduped.
+ */
+export const inboundBounces = pgTable("inbound_bounces", {
+  id: serial("id").primaryKey(),
+  /** The bounce notice's own Message-ID. */
+  messageId: text("message_id").notNull().unique(),
+  /** The outbound message it reports on; null when no sent message matched. */
+  outboundMessageId: integer("outbound_message_id").references(() => messages.id, { onDelete: "set null" }),
+  recipient: text("recipient"),
+  diagnostic: text("diagnostic"),
+  receivedAt: tsMs("received_at").notNull().defaultNow(),
 });
 
 /** Liveness of long-running processes; the worker upserts its row every loop. */

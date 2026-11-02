@@ -86,7 +86,7 @@ export const LABELS = {
     feature_request: "Feature request",
     other: "Other",
   },
-  source: { webhook: "Email", form: "Form" },
+  source: { email: "Email", webhook: "Webhook", form: "Form" },
   sort: { newest: "Newest first", oldest: "Oldest first", updated: "Recently updated", overdue: "Overdue first" },
 } as const;
 

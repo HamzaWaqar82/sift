@@ -50,7 +50,7 @@ export function CategoryLabel({ category }: { category: TriageCategory }) {
 }
 
 export function SourceLabel({ source, withIcon = false }: { source: TicketSource; withIcon?: boolean }) {
-  const Icon = source === "webhook" ? Mail : PenLine;
+  const Icon = source === "form" ? PenLine : Mail;
   return (
     <span className="inline-flex items-center gap-1 text-xs text-ink-2">
       {withIcon && <Icon className="size-3.5" strokeWidth={1.5} aria-hidden="true" />}
