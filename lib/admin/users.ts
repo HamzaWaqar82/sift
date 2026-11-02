@@ -5,6 +5,7 @@ import { recordAudit } from "@/lib/audit";
 import { revokeAllSessions } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { auditLog, users, type UserRole } from "@/lib/db/schema";
+import { releaseTicketsOf } from "@/lib/tickets/sweeps";
 
 export type AdminUser = {
   id: number;
@@ -54,7 +55,7 @@ export async function changeRole(actorId: number, targetId: number, role: UserRo
   return { ok: true, user: (await userById(targetId))! };
 }
 
-/** Sets the user Away and signs them out everywhere. Their tickets are released by ticket 21. */
+/** Sets the user Away, signs them out everywhere and releases their open tickets to the pool. */
 export async function deactivateUser(actorId: number, targetId: number): Promise<UserChange> {
   const found = await guard(actorId, targetId);
   if ("ok" in found) return found;
@@ -65,6 +66,7 @@ export async function deactivateUser(actorId: number, targetId: number): Promise
       .where(eq(users.id, targetId));
     await recordAudit({ actorId, action: "user_deactivated", targetUserId: targetId });
     await revokeAllSessions(targetId, { actorId, reason: "deactivated" });
+    await releaseTicketsOf(targetId, actorId);
   }
   return { ok: true, user: (await userById(targetId))! };
 }

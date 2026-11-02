@@ -36,7 +36,7 @@ export async function autoAssign(tx: Tx, ticketId: number, opts: { exclude?: num
 
   const [assigned] = await tx
     .update(tickets)
-    .set({ assigneeId: pick.id, assignedBy: "auto", updatedAt: sql`now()` })
+    .set({ assigneeId: pick.id, assignedBy: "auto", assignedAt: sql`now()`, firstOpenedAt: null, updatedAt: sql`now()` })
     .where(and(eq(tickets.id, ticketId), isNull(tickets.assigneeId)))
     .returning({ id: tickets.id });
   if (!assigned) return null;

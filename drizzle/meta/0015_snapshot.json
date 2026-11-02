@@ -1,5 +1,5 @@
 {
-  "id": "ebf8792f-b271-4db2-824c-aa3d5d1545cd",
+  "id": "191e5296-54aa-4f9a-8d61-eacecaac1071",
   "prevId": "bfb54d92-674c-4984-8607-69ff2af183fc",
   "version": "7",
   "dialect": "postgresql",
@@ -610,124 +610,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.imap_failures": {
-      "name": "imap_failures",
-      "schema": "",
-      "columns": {
-        "uid_validity": {
-          "name": "uid_validity",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "uid": {
-          "name": "uid",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "attempts": {
-          "name": "attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "first_failed_at": {
-          "name": "first_failed_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "last_failed_at": {
-          "name": "last_failed_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "gave_up_at": {
-          "name": "gave_up_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "imap_failures_uid_validity_uid_pk": {
-          "name": "imap_failures_uid_validity_uid_pk",
-          "columns": [
-            "uid_validity",
-            "uid"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.imap_state": {
-      "name": "imap_state",
-      "schema": "",
-      "columns": {
-        "mailbox": {
-          "name": "mailbox",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "uid_validity": {
-          "name": "uid_validity",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "last_uid": {
-          "name": "last_uid",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "connected": {
-          "name": "connected",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "status_at": {
-          "name": "status_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -1898,6 +1780,24 @@
         "release_reason": {
           "name": "release_reason",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assigned_at": {
+          "name": "assigned_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_opened_at": {
+          "name": "first_opened_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "overdue_since": {
+          "name": "overdue_since",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         }

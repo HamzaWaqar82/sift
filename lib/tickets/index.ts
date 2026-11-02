@@ -283,7 +283,7 @@ export async function assignTicket(
   }
   const [row] = await db
     .update(tickets)
-    .set({ assigneeId, assignedBy: assigneeId === null ? null : "admin", updatedAt: sql`now()` })
+    .set({ assigneeId, assignedBy: assigneeId === null ? null : "admin", assignedAt: sql`now()`, updatedAt: sql`now()` })
     .where(eq(tickets.id, id))
     .returning({ id: tickets.id });
   if (!row) return { ok: false, reason: "ticket-not-found" };
@@ -305,7 +305,7 @@ export type ClaimResult =
 export async function claimTicket(id: number, userId: number): Promise<ClaimResult> {
   const [claimed] = await getDb()
     .update(tickets)
-    .set({ assigneeId: userId, assignedBy: "claim", updatedAt: sql`now()` })
+    .set({ assigneeId: userId, assignedBy: "claim", assignedAt: sql`now()`, updatedAt: sql`now()` })
     .where(and(eq(tickets.id, id), isNull(tickets.assigneeId)))
     .returning({ id: tickets.id });
   if (claimed) {
@@ -322,17 +322,18 @@ export async function claimTicket(id: number, userId: number): Promise<ClaimResu
 /**
  * Returns an owned ticket to the pool, recording who it was released from and the optional
  * reason. Callers check the permission first; `expectedOwnerId` makes the release fail
- * ("changed") if ownership moved since that check. A reason is also posted as an internal note.
+ * ("changed") if ownership moved since that check. A person's reason is also posted as an
+ * internal note; a `system` release (overdue, deactivation) is marked `assigned_by = system`.
  */
 export async function releaseTicket(
   id: number,
-  opts: { actorId: number; expectedOwnerId: number; reason: string | null },
+  opts: { actorId: number | null; expectedOwnerId: number; reason: string | null; system?: boolean },
 ): Promise<{ ok: true; ticket: TicketDetail } | { ok: false; reason: "changed" }> {
   const [row] = await getDb()
     .update(tickets)
     .set({
       assigneeId: null,
-      assignedBy: null,
+      assignedBy: opts.system ? "system" : null,
       releasedFromUserId: opts.expectedOwnerId,
       releaseReason: opts.reason,
       updatedAt: sql`now()`,
@@ -347,7 +348,9 @@ export async function releaseTicket(
     targetUserId: opts.expectedOwnerId,
     metadata: opts.reason ? { reason: opts.reason } : undefined,
   });
-  if (opts.reason) await addNote(id, opts.actorId, `Released to the pool: ${opts.reason}`);
+  if (opts.reason && !opts.system && opts.actorId !== null) {
+    await addNote(id, opts.actorId, `Released to the pool: ${opts.reason}`);
+  }
   await publish({ type: "ticket.released", ticketId: id });
   return { ok: true, ticket: (await getTicket(id))! };
 }
