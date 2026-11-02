@@ -38,6 +38,20 @@ export async function giveTicketTo(ticketId: number, email = "alice@sift.local")
   }
 }
 
+/**
+ * Drops a new ticket's queued automatic triage, so a test about something else (sending, manual
+ * triage) starts from an untriaged ticket with an empty job queue.
+ */
+export async function skipAutoTriage(ticketId: number) {
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
+  try {
+    await sql`delete from jobs where kind = 'triage.auto' and (payload->>'ticketId')::int = ${ticketId}`;
+    await sql`delete from ticket_triage where ticket_id = ${ticketId}`;
+  } finally {
+    await sql.end();
+  }
+}
+
 /** Seeds the five staff accounts with the test passwords above, active, with fresh rate limits. */
 export async function seedTestUsers() {
   await seedUsers(process.env.DATABASE_URL!, TEST_PASSWORDS);

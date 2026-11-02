@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
 import { publish } from "@/lib/events";
 import { addNote } from "@/lib/notes";
+import { enqueueAutoTriage } from "@/lib/triage/auto";
 import {
   helpArticles,
   messages,
@@ -171,6 +172,7 @@ export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; 
       .set({ lastInboundAt: ticket.createdAt })
       .where(eq(tickets.id, ticket.id))
       .returning();
+    await enqueueAutoTriage(ticket.id, tx);
     await publish(
       { type: "ticket.created", ticketId: ticket.id, status: withInbound.status, assigneeId: withInbound.assigneeId },
       tx,

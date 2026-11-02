@@ -4,10 +4,10 @@
 
 **Blocked by:** 17
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Ticket creation (form, webhook, inbound email) enqueues `triage.auto` after saving and responds immediately
-- [ ] Automatic jobs use at most `100 − AI_MANUAL_RESERVE_PCT` percent (default 80%) of the daily cap. Manual jobs always run first
-- [ ] Customer replies never trigger automatic triage
-- [ ] PRODUCT.md and the README record the reversal of "triage on demand only"
-- [ ] Tests: reserve respected, manual before automatic, replies don't re-triage
+- [x] Ticket creation (form, webhook, inbound email) enqueues `triage.auto` after saving and responds immediately
+- [x] Automatic jobs use at most `100 − AI_MANUAL_RESERVE_PCT` percent (default 80%) of the daily cap. Manual jobs always run first
+- [x] Customer replies never trigger automatic triage
+- [x] PRODUCT.md and the README record the reversal of "triage on demand only"
+- [x] Tests: reserve respected, manual before automatic, replies don't re-triage
