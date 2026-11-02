@@ -23,7 +23,7 @@ export const POST = route(async (req: Request, ctx: TicketRouteContext) => {
   if (id === null) return ticketNotFound();
 
   const { assigneeId } = await parseBody(req, bodySchema, { message: "Body must be { assigneeId: number | null }" });
-  const result = await assignTicket(id, assigneeId);
+  const result = await assignTicket(id, assigneeId, admin.id);
   if (!result.ok) {
     return result.reason === "ticket-not-found"
       ? ticketNotFound()

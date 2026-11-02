@@ -129,6 +129,7 @@ describe("event bus", () => {
   it("publishes ticket.assigned and ticket.released on reassignment", async () => {
     const id = await newTicketId();
     const [{ id: aliceId }] = await sql`select id from users where email = 'alice@sift.local'`;
+    const [{ id: adminId }] = await sql`select id from users where email = 'admin@sift.local'`;
     const { POST } = await import("@/app/api/tickets/[id]/assign/route");
     const assign = (assigneeId: number | null) =>
       POST(
@@ -140,7 +141,7 @@ describe("event bus", () => {
         ctx(id),
       );
     expect((await assign(aliceId)).status).toBe(200);
-    expect(await eventOf("ticket.assigned")).toEqual({ type: "ticket.assigned", ticketId: id, assigneeId: aliceId });
+    expect(await eventOf("ticket.assigned")).toEqual({ type: "ticket.assigned", ticketId: id, assigneeId: aliceId, actorId: adminId });
     expect((await assign(null)).status).toBe(200);
     expect(await eventOf("ticket.released")).toEqual({ type: "ticket.released", ticketId: id });
   });

@@ -138,7 +138,7 @@ async function appendReply(ticketId: number, mail: InboundMail): Promise<IngestR
       tx,
     );
     if (reopened) await publish({ type: "ticket.updated", ticketId, status: "open" }, tx);
-    if (assigneeId !== null) await publish({ type: "ticket.assigned", ticketId, assigneeId }, tx);
+    if (assigneeId !== null) await publish({ type: "ticket.assigned", ticketId, assigneeId, actorId: null }, tx);
     return { kind: "appended", ticketId, reopened } as const;
   });
 }

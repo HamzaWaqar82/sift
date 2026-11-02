@@ -1,4 +1,6 @@
 {$PUBLIC_HOSTNAME} {
+	# HSTS lives here (Caddy owns TLS); the app sets its other security headers itself.
+	header Strict-Transport-Security "max-age=31536000"
 	# Never `app`: on the shared sift-edge network that name also resolves to staging's app.
 	# Live updates (SSE): no compression and flush every write, so events arrive at once.
 	handle /api/events {
@@ -14,6 +16,7 @@
 
 # Staging app from the sift-staging Compose project, over the shared sift-edge network.
 {$STAGING_HOSTNAME:staging.localhost} {
+	header Strict-Transport-Security "max-age=31536000"
 	# Live updates (SSE): no compression and flush every write, so events arrive at once.
 	handle /api/events {
 		reverse_proxy sift-staging-app:3000 {

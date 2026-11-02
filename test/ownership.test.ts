@@ -151,7 +151,7 @@ describe("claim", () => {
     expect(await auditRows()).toEqual([
       { actor_id: ids.ben, action: "ticket_claimed", ticket_id: ticketId, target_user_id: ids.ben, metadata: null },
     ]);
-    expect(events).toContainEqual({ type: "ticket.assigned", ticketId, assigneeId: ids.ben });
+    expect(events).toContainEqual({ type: "ticket.assigned", ticketId, assigneeId: ids.ben, actorId: ids.ben });
   });
 
   it("two concurrent claims: exactly one wins, the loser learns who", async () => {

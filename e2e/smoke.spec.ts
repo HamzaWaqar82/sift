@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// The smoke suite is capped: at most 3 more checks after these four (see ticket 01).
+// The smoke suite is capped (ticket 01): three base checks plus at most four more. All seven are used.
 
 test("health check returns 200", async ({ request }) => {
   const res = await request.get("/api/health");

@@ -31,6 +31,17 @@ export default async function AccountPage() {
           doneText="Check the new address for a confirmation link. It expires in 24 hours."
         />
       </section>
+      <section className="coupon mt-6 p-6" aria-labelledby="sessions-heading">
+        <h2 id="sessions-heading" className="caps-bold text-lg text-ink">
+          Sessions
+        </h2>
+        <p className="mt-1 text-sm text-ink-2">Signs you out on every device, including this one.</p>
+        <form action="/api/auth/sign-out-everywhere" method="post" className="mt-4">
+          <button type="submit" className="btn btn-sm">
+            Sign out everywhere
+          </button>
+        </form>
+      </section>
     </div>
   );
 }

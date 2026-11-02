@@ -8,7 +8,7 @@ import { ticketPermission } from "@/lib/tickets/permissions";
 import { getLatestAttempt, getTriageState } from "@/lib/triage";
 import { LABELS } from "../../_lib/params";
 import { JustReplied } from "../../_components/live-updates";
-import { stampTime, timeAgo } from "../../_components/ticket-labels";
+import { stampTime } from "../../_components/ticket-labels";
 import { WithArticlePanel } from "./article-panel";
 import { TicketActions } from "./close-button";
 import { CappedText } from "./capped-text";
@@ -72,42 +72,38 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
           <span className="tab" data-tone="navy">
             {ticket.source === "form" ? "Form" : "Email"} ticket
           </span>
-          {triage ? (
+          {triage && (
             <>
               <span className="tab" data-tone={triage.urgency === "high" ? "red" : undefined}>
                 {LABELS.urgency[triage.urgency]} urgency
               </span>
               <span className="tab">{LABELS.category[triage.category]}</span>
             </>
-          ) : (
-            <span className="tab" data-tone="ground">
-              Not triaged
-            </span>
           )}
         </div>
 
-        <div className="coupon">
-          <header className="grid md:grid-cols-[auto_1fr]">
+        <div className="coupon @container">
+          <header className="grid @xl:grid-cols-[auto_1fr]">
             {/* Stub: the ticket number at display scale, like a flight code on a coupon. */}
-            <div className="flex items-end justify-between gap-3 border-b border-dashed border-ink-3 bg-panel-2 px-4 py-3 md:flex-col md:items-start md:justify-start md:rounded-tl-[var(--radius-coupon)] md:border-b-0 md:px-5 md:py-4">
+            <div className="flex items-end justify-between gap-3 border-b border-dashed border-ink-3 bg-panel-2 px-4 py-3 @xl:flex-col @xl:items-start @xl:justify-start @xl:rounded-tl-[var(--radius-coupon)] @xl:border-b-0 @xl:px-5 @xl:py-4">
               <div>
                 <p className="field-label">Ticket</p>
                 <p
-                  className="font-display text-[2.75rem] font-bold leading-[0.9] tracking-[0.01em] text-carbon [font-variant-numeric:tabular-nums] md:text-[3.5rem]"
+                  className="font-display text-[2.75rem] font-bold leading-[0.9] tracking-[0.01em] text-carbon [font-variant-numeric:tabular-nums] @xl:text-[3.5rem]"
                   aria-label={`Ticket ${ticket.id}`}
                 >
                   <span className="text-[0.55em] align-top text-carbon/70">#</span>
                   {String(ticket.id).padStart(4, "0")}
                 </p>
               </div>
-              <div className="md:mt-3">
+              <div className="@xl:mt-3">
                 <p className="field-label">Received</p>
                 <time dateTime={ticket.createdAt.toISOString()} className="num block text-xs">
                   {stampTime(ticket.createdAt)}
                 </time>
               </div>
             </div>
-            <div className="perf-v min-w-0 p-4 md:px-5">
+            <div className="perf-cv min-w-0 p-4 @xl:px-5">
               <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
                 <div className="min-w-0 flex-1">
                   <h1 id={headingId} className="text-xl font-semibold leading-snug text-ink sm:text-2xl">
@@ -118,14 +114,6 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
                     {ticket.customerName && <span className="text-ink-2"> &lt;{ticket.customerEmail}&gt;</span>}
                   </p>
                   <dl className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule pt-2.5 text-sm">
-                    <div className="flex items-center gap-2">
-                      <dt className="field-label">Age</dt>
-                      <dd className="num text-xs">{timeAgo(ticket.createdAt)}</dd>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <dt className="field-label">Replies</dt>
-                      <dd className="num text-xs">{replyCount}</dd>
-                    </div>
                     <div className="flex items-center gap-2">
                       <dt className="field-label">Owner</dt>
                       <dd className="flex flex-wrap items-center gap-1.5">

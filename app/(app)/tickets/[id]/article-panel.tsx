@@ -24,7 +24,7 @@ export function ArticlePanel({ grounding }: { grounding: Grounding }) {
           <BookOpen className="size-4" strokeWidth={1.5} aria-hidden="true" />
           Source article
         </p>
-        <p className="mt-2">The help article behind the AI draft appears here after a triage, so you can check the draft against it.</p>
+        <p className="mt-2">The help article behind the AI draft appears here after triage.</p>
       </aside>
     );
   }

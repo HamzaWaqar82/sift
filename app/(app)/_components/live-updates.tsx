@@ -64,7 +64,12 @@ export function LiveUpdates({ userId, children }: { userId: number; children: Re
           return;
         }
         for (const fn of listeners.current) fn(event);
-        if ((event.type === "ticket.assigned" || event.type === "ticket.created") && event.assigneeId === userId) {
+        // Toast only work someone or something else gave me, never my own claim.
+        if (
+          (event.type === "ticket.created" || event.type === "ticket.assigned") &&
+          event.assigneeId === userId &&
+          (event.type === "ticket.created" || event.actorId !== userId)
+        ) {
           const id = event.ticketId;
           setToast(id);
           setFresh((ids) => [...ids.filter((x) => x !== id), id]);

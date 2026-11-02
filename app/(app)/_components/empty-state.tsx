@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FilterX, Inbox, Mail, PenLine, TriangleAlert } from "lucide-react";
+import { FilterX, Inbox, TriangleAlert } from "lucide-react";
 import { DEFAULT_PRESET, hrefWith, LABELS, PRESETS, sameState } from "../_lib/params";
 
 const FILTER_KEYS = ["q", "status", "assignee", "urgency", "category", "source"] as const;
@@ -44,7 +44,7 @@ export function EmptyState({ params, paged }: { params: Record<string, string>; 
     return (
       <Shell icon={<FilterX className="size-6" strokeWidth={1.5} aria-hidden="true" />} title="No tickets match">
         <p>
-          No tickets {parts.join(", ")}. Remove a filter above, or start again from every ticket.
+          No tickets {parts.join(", ")}.
         </p>
         <Link href={hrefWith(params, Object.fromEntries(FILTER_KEYS.map((k) => [k, null])))} className="btn btn-sm mt-4">
           Clear all filters
@@ -54,22 +54,7 @@ export function EmptyState({ params, paged }: { params: Record<string, string>; 
   }
   return (
     <Shell icon={<Inbox className="size-6" strokeWidth={1.5} aria-hidden="true" />} title="The wallet is empty">
-      <p>Tickets arrive two ways, and both land here:</p>
-      <ul className="mt-3 space-y-2 text-left">
-        <li className="flex gap-2">
-          <Mail className="mt-0.5 size-4 shrink-0 text-ink" strokeWidth={1.5} aria-hidden="true" />
-          <span>
-            <strong className="font-medium text-ink">Email.</strong> Your mail provider posts each inbound message to{" "}
-            <code className="font-mono text-xs text-carbon">/api/webhook</code> with the shared secret.
-          </span>
-        </li>
-        <li className="flex gap-2">
-          <PenLine className="mt-0.5 size-4 shrink-0 text-ink" strokeWidth={1.5} aria-hidden="true" />
-          <span>
-            <strong className="font-medium text-ink">Phone or chat.</strong> Log it yourself with New ticket.
-          </span>
-        </li>
-      </ul>
+      <p>Customer email lands here. Log phone and chat tickets yourself.</p>
       <Link href="/tickets/new" className="btn btn-sm btn-navy mt-4">
         Log a ticket
       </Link>
@@ -77,59 +62,22 @@ export function EmptyState({ params, paged }: { params: Record<string, string>; 
   );
 }
 
-/**
- * The inbox's right pane when there is nothing to open: a stamped coupon whose copy matches why
- * (the filters match nothing vs. the queue is empty).
- */
+/** The inbox's right pane when there is nothing to open. */
 export function NoTicketSelected({ params }: { params: Record<string, string> }) {
   const active = FILTER_KEYS.some((k) => params[k]);
-  const parts = describe(params);
   return (
-    <div>
-      <div className="tab-row pl-4">
-        <span className="tab" data-tone="ground">
-          Open coupon
-        </span>
-      </div>
-      <div className="coupon">
-        <div className="flex flex-wrap items-start justify-between gap-4 p-6">
-          <h2 className="caps-bold text-2xl text-ink">No ticket selected</h2>
-          <div className="rubber rubber-void" style={{ ["--rubber-rot" as string]: "-6deg" }}>
-            <span className="rubber-word text-lg">None open</span>
-          </div>
-        </div>
-        <div className="perf" aria-hidden="true" />
-        <div className="space-y-3 p-6 text-sm text-ink-2">
-          {active ? (
-            <>
-              <p>
-                The list has no tickets {parts.join(", ")}, so there is nothing to open here. Loosen a filter, or clear them
-                all to see the whole queue.
-              </p>
-              <Link href={hrefWith(params, Object.fromEntries(FILTER_KEYS.map((k) => [k, null])))} className="btn btn-sm">
-                Clear all filters
-              </Link>
-            </>
-          ) : (
-            <>
-              <p>The queue is empty. A ticket opens here as soon as one arrives:</p>
-              <ul className="space-y-2">
-                <li className="flex gap-2">
-                  <Mail className="mt-0.5 size-4 shrink-0 text-ink" strokeWidth={1.5} aria-hidden="true" />
-                  <span>Inbound email is posted to <code className="font-mono text-xs text-carbon">/api/webhook</code> by your mail provider.</span>
-                </li>
-                <li className="flex gap-2">
-                  <PenLine className="mt-0.5 size-4 shrink-0 text-ink" strokeWidth={1.5} aria-hidden="true" />
-                  <span>Phone and chat tickets are logged with New ticket.</span>
-                </li>
-              </ul>
-              <Link href="/tickets/new" className="btn btn-sm btn-navy">
-                Log a ticket
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
+    <div className="coupon-quiet p-6 text-sm text-ink-2">
+      <h2 className="caps-bold text-lg text-ink">No ticket selected</h2>
+      {active ? (
+        <>
+          <p className="mt-1">No tickets match these filters.</p>
+          <Link href={hrefWith(params, Object.fromEntries(FILTER_KEYS.map((k) => [k, null])))} className="btn btn-sm mt-4">
+            Clear all filters
+          </Link>
+        </>
+      ) : (
+        <p className="mt-1">Pick a ticket from the list.</p>
+      )}
     </div>
   );
 }

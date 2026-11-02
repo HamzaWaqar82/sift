@@ -157,7 +157,6 @@ export function ReplyEditor({
         <p id={`reply-${ticketId}-hint`} className="mb-1 ml-2 min-w-0 self-center truncate text-xs text-ink-2">
           {state === "unedited" && "Check it against the source article before sending."}
           {state === "edited" && "Will be recorded as an edited AI draft."}
-          {state === "hand" && "Written by hand."}
         </p>
       </div>
       <div className="coupon">
@@ -254,7 +253,7 @@ export function ReplyEditor({
         {sent && !error && (
           <p className="flex items-center gap-1.5 text-sm text-ok-ink">
             <CircleCheck className="size-4" strokeWidth={1.5} aria-hidden="true" />
-            Reply queued. It is stamped Sent once the mail server accepts it.
+            Reply queued. It is stamped Sent once delivered.
           </p>
         )}
       </div>

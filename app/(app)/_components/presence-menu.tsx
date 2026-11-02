@@ -47,7 +47,7 @@ export function PresenceMenu({ meId, team, admin }: { meId: number; team: Presen
         title={`You are ${away ? "Away: no new tickets" : "Available"}. ${availableCount} of ${team.length} available.`}
       >
         <span aria-hidden="true" className={`size-2 rounded-full ${away ? "border border-band-ink" : "bg-ok-tint"}`} />
-        <span className="font-display text-xs font-semibold uppercase tracking-[0.08em]">{away ? "Away" : "Available"}</span>
+        <span className="sr-only font-display text-xs font-semibold uppercase tracking-[0.08em] sm:not-sr-only">{away ? "Away" : "Available"}</span>
       </button>
       <div ref={pop} id="presence-menu" popover="auto" className="pop w-72" aria-label="Team availability">
         <div className="space-y-3 p-3 text-ink">
