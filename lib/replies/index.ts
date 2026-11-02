@@ -1,6 +1,6 @@
 // Sending and listing replies. Each reply is also an outbound message in `messages`, queued for
 // the `mail.send` job; `replies` is kept alongside until the contract step (ticket 16).
-import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, notInArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { publish } from "@/lib/events";
@@ -142,16 +142,23 @@ export async function sendReply(
       .returning({ id: replies.id });
     if (!row) return false;
 
-    // Thread under the customer's latest email that has a Message-ID.
-    const [parent] = await tx
+    // Thread under the newest message (the customer's email or our last reply), and reference
+    // the whole conversation: clients thread on any id they hold, so consecutive replies group
+    // together even when the customer's original isn't in the mailbox. Failed replies never went out.
+    const thread = await tx
       .select({ messageId: messages.messageId, references: messages.references })
       .from(messages)
-      .where(and(eq(messages.ticketId, ticketId), eq(messages.direction, "inbound"), isNotNull(messages.messageId)))
-      .orderBy(desc(messages.occurredAt), desc(messages.id))
-      .limit(1);
-    const inReplyTo = parent?.messageId ? angleId(parent.messageId) : null;
-    const chain = (parent?.references ?? "").split(/\s+/).filter(Boolean).map(angleId);
-    const references = inReplyTo ? [...new Set([...chain, inReplyTo])].join(" ") : null;
+      .where(
+        and(
+          eq(messages.ticketId, ticketId),
+          isNotNull(messages.messageId),
+          or(eq(messages.direction, "inbound"), notInArray(messages.status, ["failed", "bounced"])),
+        ),
+      )
+      .orderBy(asc(messages.occurredAt), asc(messages.id));
+    const ids = thread.flatMap((m) => [...(m.references ?? "").split(/\s+/).filter(Boolean), m.messageId!]).map(angleId);
+    const inReplyTo = thread.length ? angleId(thread.at(-1)!.messageId!) : null;
+    const references = inReplyTo ? referencesHeader([...new Set([...ids.filter((i) => i !== inReplyTo), inReplyTo])]) : null;
 
     const [message] = await tx
       .insert(messages)
@@ -215,4 +222,10 @@ function selectReplies() {
     .from(replies)
     .innerJoin(users, eq(users.id, replies.sentBy))
     .$dynamic();
+}
+
+/** RFC 5322 References, capped for long threads: the first id (the thread root) plus the newest. */
+const MAX_REFERENCES = 20;
+function referencesHeader(ids: string[]): string {
+  return (ids.length > MAX_REFERENCES ? [ids[0], ...ids.slice(-(MAX_REFERENCES - 1))] : ids).join(" ");
 }

@@ -48,6 +48,8 @@ export function ReplyEditor({
   // The triage result the box's text started from; null once it is a hand-written reply.
   const [baseDraftId, setBaseDraftId] = useState(draft?.triageId ?? null);
   const [baseText, setBaseText] = useState(draft?.text ?? null);
+  // A draft that arrived while the agent had their own text in the box, offered instead of forced.
+  const [offered, setOffered] = useState<EditorDraft | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -78,14 +80,19 @@ export function ReplyEditor({
   }, [measure, text]);
   const sending = useRef(false);
 
-  // A new draft (e.g. triage just ran) replaces the box only if the agent has not typed yet.
+  function applyDraft(d: EditorDraft | null) {
+    setText(d?.text ?? "");
+    setBaseDraftId(d?.triageId ?? null);
+    setBaseText(d?.text ?? null);
+    setOffered(null);
+  }
+
+  // A new draft (triage or regenerate just ran) fills an untouched or empty box. Over the agent's
+  // own text it is offered instead, so typing is never lost and a paid regenerate is never hidden.
   if ((draft?.triageId ?? null) !== latestDraftId) {
     setLatestDraftId(draft?.triageId ?? null);
-    if (!touched) {
-      setText(draft?.text ?? "");
-      setBaseDraftId(draft?.triageId ?? null);
-      setBaseText(draft?.text ?? null);
-    }
+    if (!touched || !text.trim()) applyDraft(draft);
+    else setOffered(draft);
   }
 
   const fromDraft = baseDraftId !== null && baseText !== null;
@@ -154,6 +161,17 @@ export function ReplyEditor({
         </p>
       </div>
       <div className="coupon">
+        {offered && (
+          <div role="status" className="flex flex-wrap items-center gap-3 border-b border-rule-soft bg-panel-2 px-4 py-2 text-sm">
+            <p className="flex-1 text-ink-2">A new AI draft is ready. Using it replaces what you have typed.</p>
+            <button type="button" className="btn btn-sm" onClick={() => applyDraft(offered)}>
+              Use new draft
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOffered(null)}>
+              Keep mine
+            </button>
+          </div>
+        )}
         <label htmlFor={`reply-${ticketId}`} className="sr-only">
           Reply to the customer
         </label>
