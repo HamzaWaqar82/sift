@@ -6,6 +6,8 @@ export const PUBLIC_PATHS = [
   "/sign-in", // sign-in page
   "/api/auth/sign-in", // POST /api/auth/sign-in/email
   "/api/auth/sign-out", // must work even with an expired session
+  "/invite", // invite page (/invite/<token>); the token is the credential
+  "/api/invite", // POST /api/invite/accept; limited to 10 per hour per IP
   "/icon.svg", // favicon (also needed on the signed-out sign-in page)
   "/apple-icon", // apple-touch icon
   "/api/health", // deploy smoke test

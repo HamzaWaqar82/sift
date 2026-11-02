@@ -78,6 +78,13 @@
       "when": 1793546771349,
       "tag": "0010_suppressed_emails",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793556255879,
+      "tag": "0011_pretty_loki",
+      "breakpoints": true
     }
   ]
 }

@@ -407,3 +407,25 @@ export type UserRef = { id: number; name: string; email: string };
 
 /** A help article the AI may cite; also what the article panel shows. */
 export type HelpArticle = { id: string; title: string; body: string };
+
+/**
+ * An admin's invitation to join (lib/invitations). Only the SHA-256 of the emailed token is stored;
+ * `nonce` lets the mail job rebuild the same link without the plaintext ever being written down.
+ * Pending means not accepted, not revoked and not expired.
+ */
+export const invitations = pgTable(
+  "invitations",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull(),
+    role: userRole("role").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    nonce: text("nonce").notNull(),
+    invitedBy: integer("invited_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: tsMs("created_at").notNull().defaultNow(),
+    expiresAt: tsMs("expires_at").notNull(),
+    acceptedAt: tsMs("accepted_at"),
+    revokedAt: tsMs("revoked_at"),
+  },
+  (t) => [index("invitations_email_idx").on(t.email)],
+);
