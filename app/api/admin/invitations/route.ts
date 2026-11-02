@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { blockedFor, INVITE_SEND_LIMIT, recordHit } from "@/lib/auth/rate-limit";
+import { blockedFor, inviteSendLimit, recordHit } from "@/lib/auth/rate-limit";
 import { apiError, parseBody, rateLimited, route } from "@/lib/http";
 import { createInvite, listInvites } from "@/lib/invitations";
 import { emailField } from "@/lib/validation";
@@ -24,7 +24,7 @@ export const POST = route(async (req: Request) => {
   const { email, role } = await parseBody(req, bodySchema, { message: "Body must be { email, role }" });
 
   const keys = [`invite-send:admin:${admin.id}`];
-  const wait = await blockedFor(keys, INVITE_SEND_LIMIT);
+  const wait = await blockedFor(keys, inviteSendLimit());
   if (wait > 0) return rateLimited("You have sent the most invitations allowed today. Try again later.", wait);
 
   const result = await createInvite(admin, email, role);
@@ -33,6 +33,6 @@ export const POST = route(async (req: Request) => {
       ? apiError(409, "That address already has an account", { code: "has_account" })
       : apiError(409, "That address already has a pending invitation. Resend it instead.", { code: "already_pending" });
   }
-  await recordHit(keys, INVITE_SEND_LIMIT);
+  await recordHit(keys, inviteSendLimit());
   return NextResponse.json({ invitation: result.invite }, { status: 201 });
 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { blockedFor, INVITE_SEND_LIMIT, recordHit } from "@/lib/auth/rate-limit";
+import { blockedFor, inviteSendLimit, recordHit } from "@/lib/auth/rate-limit";
 import { apiError, parseIntId, rateLimited, route } from "@/lib/http";
 import { resendInvite } from "@/lib/invitations";
 
@@ -17,10 +17,10 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
   if (id === null) return notFound();
 
   const keys = [`invite-send:admin:${admin.id}`];
-  const wait = await blockedFor(keys, INVITE_SEND_LIMIT);
+  const wait = await blockedFor(keys, inviteSendLimit());
   if (wait > 0) return rateLimited("You have sent the most invitations allowed today. Try again later.", wait);
   const invitation = await resendInvite(admin, id);
   if (!invitation) return notFound();
-  await recordHit(keys, INVITE_SEND_LIMIT);
+  await recordHit(keys, inviteSendLimit());
   return NextResponse.json({ invitation });
 });

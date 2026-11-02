@@ -215,6 +215,17 @@ describe("invitations: access and limits", () => {
     expect(await sql`select 1 from invitations`).toHaveLength(20);
   });
 
+  it("takes the daily limit from INVITE_SEND_PER_DAY (staging raises it for smoke tests)", async () => {
+    process.env.INVITE_SEND_PER_DAY = "2";
+    try {
+      expect((await invite(admin, "q0@invitee.test")).status).toBe(201);
+      expect((await invite(admin, "q1@invitee.test")).status).toBe(201);
+      expect((await invite(admin, "q2@invitee.test")).status).toBe(429);
+    } finally {
+      delete process.env.INVITE_SEND_PER_DAY;
+    }
+  });
+
   it("limits accepting to 10 attempts per hour per IP, with Retry-After", async () => {
     for (let i = 0; i < 10; i++) expect((await accept("nope", {}, "10.8.0.1")).status).toBe(410);
     const blocked = await accept("nope", {}, "10.8.0.1");

@@ -20,6 +20,8 @@ x-app-env: &app-env
   APP_ENV: ${APP_ENV:-staging}
   MAIL_TRANSPORT: ${MAIL_TRANSPORT:-capture}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sift Support (staging)}
+  # Every deploy's smoke test sends an invite; 20 a day (the default) runs out on a busy day.
+  INVITE_SEND_PER_DAY: ${INVITE_SEND_PER_DAY:-200}
 
 services:
   db:

@@ -10,8 +10,13 @@ export type Limit = { max: number; windowMs: number };
 /** Sign-in: 5 failures per 15 minutes, counted per IP and per email. */
 export const SIGN_IN_LIMIT: Limit = { max: 5, windowMs: 15 * 60 * 1000 };
 
-/** Invite send (including resend): 20 per day per admin. */
-export const INVITE_SEND_LIMIT: Limit = { max: 20, windowMs: 24 * 60 * 60 * 1000 };
+/**
+ * Invite send (including resend): INVITE_SEND_PER_DAY per admin, default 20. Staging raises it,
+ * since every deploy's smoke test sends one.
+ */
+export function inviteSendLimit(): Limit {
+  return { max: Number(process.env.INVITE_SEND_PER_DAY) || 20, windowMs: 24 * 60 * 60 * 1000 };
+}
 
 /** Invite accept: 10 attempts per hour per IP, successful or not. */
 export const INVITE_ACCEPT_LIMIT: Limit = { max: 10, windowMs: 60 * 60 * 1000 };
