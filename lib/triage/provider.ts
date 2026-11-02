@@ -1,7 +1,8 @@
 // The ONLY place Sift talks to the AI provider (Google Gemini). Tests replace runTriageModel
 // with a fake (vi.mock("@/lib/triage/provider")); nothing else in the app imports @google/genai.
-import { GoogleGenAI } from "@google/genai";
+import { ApiError, GoogleGenAI } from "@google/genai";
 import { MAX_OUTPUT_TOKENS, triageModelName } from "./config";
+import { AiRateLimitedError, retryDelaySeconds } from "./errors";
 import { TRIAGE_CATEGORIES, TRIAGE_JSON_SCHEMA, TRIAGE_URGENCIES } from "./schema";
 
 import type { HelpArticle } from "@/lib/db/schema";
@@ -16,7 +17,10 @@ export type TriageInput = {
   articles: HelpArticle[];
 };
 
-/** The provider's raw text (unvalidated) and the model that produced it. Throws on provider failure. */
+/**
+ * The provider's raw text (unvalidated) and the model that produced it. Throws on provider
+ * failure; a 429 (rate or quota limit) throws AiRateLimitedError so the job is requeued.
+ */
 export type TriageModelOutput = { rawText: string; model: string };
 
 const DATA_TAG = "customer_ticket";
@@ -58,6 +62,17 @@ export async function runTriageModel(input: TriageInput): Promise<TriageModelOut
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
   const model = triageModelName();
   const ai = new GoogleGenAI({ apiKey });
+  try {
+    return await generate(ai, model, input);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 429) {
+      throw new AiRateLimitedError(err.message.slice(0, 500), retryDelaySeconds(err.message));
+    }
+    throw err;
+  }
+}
+
+async function generate(ai: GoogleGenAI, model: string, input: TriageInput): Promise<TriageModelOutput> {
   const res = await ai.models.generateContent({
     model,
     contents: buildUserContent(input),

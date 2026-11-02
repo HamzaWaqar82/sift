@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
-import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
+import { giveTicketTo, runTriageJobs, seedTestUsers, signInAs } from "./helpers";
 
 // Seam 2: the single provider function is the only thing faked. Real Gemini is never called.
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
@@ -18,7 +18,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await sql`truncate tickets restart identity cascade`;
-  await sql`truncate ai_usage`;
+  await sql`truncate ai_usage, jobs`;
   provider.mockReset();
 });
 afterAll(async () => {
@@ -37,11 +37,19 @@ async function newTicket(body = "I was charged twice this month, please refund o
   return ticket.id;
 }
 
-async function requestTriage(id: number, cookie = agent) {
+async function postTriage(id: number, cookie = agent) {
   const { POST } = await import("@/app/api/tickets/[id]/triage/route");
   return POST(new Request(`http://localhost/api/tickets/${id}/triage`, { method: "POST", headers: { cookie } }), {
     params: Promise.resolve({ id: String(id) }),
   });
+}
+
+/** Requests triage and lets the worker run it; returns what the panel then reads. */
+async function requestTriage(id: number, cookie = agent) {
+  const res = await postTriage(id, cookie);
+  expect(res.status).toBe(202);
+  await runTriageJobs();
+  return (await readTriage(id, cookie)).json();
 }
 
 async function readTriage(id: number, cookie = agent) {
@@ -70,10 +78,9 @@ describe("AI triage", () => {
     const id = await newTicket();
     modelReturns(VALID);
 
-    const res = await requestTriage(id);
+    const { state, triage } = await requestTriage(id);
 
-    expect(res.status).toBe(200);
-    const { triage } = await res.json();
+    expect(state.state).toBe("done");
     expect(triage).toMatchObject({
       status: "ok",
       category: "billing",
@@ -91,7 +98,7 @@ describe("AI triage", () => {
     modelReturns(VALID);
     await requestTriage(id);
 
-    const again = await requestTriage(id);
+    const again = await postTriage(id);
 
     expect(again.status).toBe(200);
     const json = await again.json();
@@ -123,10 +130,9 @@ describe("AI triage", () => {
     const id = await newTicket();
     modelReturns(raw);
 
-    const res = await requestTriage(id);
+    const json = await requestTriage(id);
 
-    expect(res.status).toBe(502);
-    const json = await res.json();
+    expect(json.state.state).toBe("failed");
     expect(json.draft).toBeNull();
     expect(json.triage.status).toBe("error");
     expect(json.triage.error).toMatch(message);
@@ -141,34 +147,31 @@ describe("AI triage", () => {
     const id = await newTicket();
     modelReturns({ ...VALID, article_id: null });
 
-    const res = await requestTriage(id);
+    const { triage } = await requestTriage(id);
 
-    expect(res.status).toBe(200);
-    expect((await res.json()).triage).toMatchObject({ status: "ok", article: null });
+    expect(triage).toMatchObject({ status: "ok", article: null });
   });
 
-  it("stores a provider failure as an error", async () => {
+  it("stores a provider failure as an error once the retries are used up", async () => {
     const id = await newTicket();
     provider.mockRejectedValue(new Error("503 Service Unavailable"));
 
-    const res = await requestTriage(id);
+    const { state, triage } = await requestTriage(id);
 
-    expect(res.status).toBe(502);
-    const { triage } = await res.json();
+    expect(state.state).toBe("failed");
     expect(triage.status).toBe("error");
     expect(triage.error).toMatch(/503 Service Unavailable/);
   });
 
   it("lets the agent retry after a failure, and the retry's valid result replaces the error", async () => {
     const id = await newTicket();
-    provider.mockRejectedValueOnce(new Error("timeout"));
+    modelReturns("not json");
     await requestTriage(id);
     modelReturns(VALID);
 
     const retry = await requestTriage(id);
 
-    expect(retry.status).toBe(200);
-    expect((await retry.json()).cached).toBe(false);
+    expect(retry.state.state).toBe("done");
     expect(provider).toHaveBeenCalledTimes(2);
     expect((await (await readTriage(id)).json()).triage).toMatchObject({ status: "ok", draft: VALID.draft });
   });
@@ -176,13 +179,13 @@ describe("AI triage", () => {
   it("shows no triage for a ticket that has not been triaged", async () => {
     const id = await newTicket();
     const json = await (await readTriage(id)).json();
-    expect(json).toEqual({ triage: null, draft: null, draftTriageId: null });
+    expect(json).toEqual({ state: { state: "none", retryAt: null }, triage: null, draft: null, draftTriageId: null });
   });
 
   it("requires sign-in and an existing ticket", async () => {
     const id = await newTicket();
-    expect((await requestTriage(id, "")).status).toBe(401);
-    expect((await requestTriage(9999)).status).toBe(404);
+    expect((await postTriage(id, "")).status).toBe(401);
+    expect((await postTriage(9999)).status).toBe(404);
     expect((await readTriage(9999)).status).toBe(404);
     expect(provider).not.toHaveBeenCalled();
   });

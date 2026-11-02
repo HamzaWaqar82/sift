@@ -77,13 +77,14 @@ const MATRIX: { capability: string; run: (cookie: string) => Promise<Response>; 
   },
   {
     capability: "request triage",
+    // 202: queued as a triage.manual job (ticket 17).
     run: (c) => call("triage", c),
-    expect: { owner: 200, "other agent": [403, "not_ticket_owner"], unassigned: [409, "ticket_unassigned"], admin: 200 },
+    expect: { owner: 202, "other agent": [403, "not_ticket_owner"], unassigned: [409, "ticket_unassigned"], admin: 202 },
   },
   {
     capability: "regenerate triage",
     run: (c) => call("triage", c, { force: true }),
-    expect: { owner: [403, "forbidden"], "other agent": [403, "forbidden"], unassigned: [403, "forbidden"], admin: 200 },
+    expect: { owner: [403, "forbidden"], "other agent": [403, "forbidden"], unassigned: [403, "forbidden"], admin: 202 },
   },
   {
     capability: "close (after a sent reply)",

@@ -7,7 +7,9 @@ export const dynamic = "force-dynamic";
 // Sections of the admin area. Add a page here (and a folder next to this file) to extend it.
 const SECTIONS = [
   { href: "/admin/users", label: "Users" },
+  { href: "/admin/invitations", label: "Invitations" },
   { href: "/admin/audit", label: "Audit log" },
+  { href: "/admin/ai", label: "AI" },
 ];
 
 /** Admin area shell: non-admins get a 404 so the area does not advertise itself. */

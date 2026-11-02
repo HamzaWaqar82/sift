@@ -94,3 +94,40 @@ test("a sent reply reaches the dev mailbox", async ({ page, request }) => {
   await page.goto("/dev/mailbox");
   await expect(page.getByText(`Re: ${subject}`).first()).toBeVisible();
 });
+
+test("an invited teammate can accept the invite from /dev/mailbox", async ({ page, browser, baseURL }) => {
+  // Needs a SMOKE_EMAIL that is an admin. A new address each run keeps reruns from colliding.
+  const email = `smoke-${Date.now()}@example.com`;
+  await page.goto("/sign-in");
+  await page.getByLabel("Email").fill(process.env.SMOKE_EMAIL!);
+  await page.getByLabel("Password").fill(process.env.SMOKE_PASSWORD!);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+
+  await page.goto("/admin/invitations");
+  await page.getByLabel("Email to invite").fill(email);
+  await page.getByRole("button", { name: "Review invitation" }).click();
+  await expect(page.getByText(email)).toBeVisible();
+  await page.getByRole("button", { name: "Send invitation" }).click();
+  await expect(page.getByText(`Invitation sent to ${email}`)).toBeVisible();
+
+  // The worker sends the mail; the capture transport puts it in the dev mailbox.
+  await expect(async () => {
+    await page.goto("/dev/mailbox");
+    await expect(page.getByText(`To ${email}`).first()).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 30_000 });
+  await page.getByText(`To ${email}`).first().click();
+  const body = (await page.locator("pre").first().textContent()) ?? "";
+  const path = body.match(/\/invite\/[\w-]+/)?.[0];
+  expect(path, "invite link in the email").toBeTruthy();
+
+  // A fresh browser context: the invitee is not the admin.
+  const invitee = await browser.newContext({ baseURL });
+  const tab = await invitee.newPage();
+  await tab.goto(path!);
+  await tab.getByLabel("Your name").fill("Smoke Invitee");
+  await tab.getByLabel("Password", { exact: true }).fill(`smoke-${Date.now()}-pass`);
+  await tab.getByRole("button", { name: "Join Sift" }).click();
+  await expect(tab.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await invitee.close();
+});

@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
-import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
+import { giveTicketTo, runTriageJobs, seedTestUsers, signInAs } from "./helpers";
 
 // The provider is the only fake. Real Gemini is never called.
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
@@ -20,7 +20,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await sql`truncate tickets restart identity cascade`;
-  await sql`truncate ai_usage`;
+  await sql`truncate ai_usage, jobs`;
   provider.mockReset();
 });
 afterAll(async () => {
@@ -41,9 +41,10 @@ async function newTicket() {
   return ticket.id;
 }
 
+/** POSTs a triage request, then lets the worker run any job it queued. */
 async function postTriage(id: number, cookie = agent, body?: unknown) {
   const { POST } = await import("@/app/api/tickets/[id]/triage/route");
-  return POST(
+  const res = await POST(
     new Request(`http://localhost/api/tickets/${id}/triage`, {
       method: "POST",
       headers: { cookie, ...(body ? { "content-type": "application/json" } : {}) },
@@ -51,6 +52,8 @@ async function postTriage(id: number, cookie = agent, body?: unknown) {
     }),
     ctx(id),
   );
+  await runTriageJobs();
+  return res;
 }
 
 async function readTriage(id: number) {
@@ -93,13 +96,20 @@ function modelReturnsOnce(output: unknown) {
   provider.mockResolvedValueOnce({ rawText: JSON.stringify(output), model: "fake-model" });
 }
 
+/** Output that fails validation: stored as a failed attempt at once. */
+function modelFailsOnce() {
+  provider.mockResolvedValueOnce({ rawText: "not json", model: "fake-model" });
+}
+
 /** A valid triage followed by a failed admin regenerate. Returns the ticket id and valid triage id. */
 async function validThenFailedRegenerate() {
   const id = await newTicket();
   modelReturnsOnce(VALID);
-  const first = await (await postTriage(id)).json();
-  provider.mockRejectedValueOnce(new Error("timeout"));
-  expect((await postTriage(id, admin, { force: true })).status).toBe(502);
+  await postTriage(id);
+  const first = await readTriage(id);
+  modelFailsOnce();
+  expect((await postTriage(id, admin, { force: true })).status).toBe(202);
+  expect((await readTriage(id)).state.state).toBe("failed");
   return { id, validTriageId: first.triage.id as number };
 }
 
@@ -151,7 +161,7 @@ describe("edited flag is computed against the draft the agent saw", () => {
     const seen = await readTriage(id);
     // The admin regenerates while the agent is composing from the first draft.
     modelReturnsOnce({ ...VALID, draft: "Hi Maria, a regenerated draft." });
-    expect((await postTriage(id, admin, { force: true })).status).toBe(200);
+    expect((await postTriage(id, admin, { force: true })).status).toBe(202);
 
     const res = await sendReply(id, { body: seen.draft, draftTriageId: seen.draftTriageId });
 
@@ -173,9 +183,11 @@ describe("edited flag is computed against the draft the agent saw", () => {
     const id = await newTicket();
     const other = await newTicket();
     modelReturnsOnce(VALID);
-    const otherTriage = (await (await postTriage(other)).json()).triage.id;
-    provider.mockRejectedValueOnce(new Error("timeout"));
-    const failedTriage = (await (await postTriage(id)).json()).triage.id;
+    await postTriage(other);
+    const otherTriage = (await readTriage(other)).triage.id;
+    modelFailsOnce();
+    await postTriage(id);
+    const failedTriage = (await readTriage(id)).triage.id;
 
     for (const draftTriageId of [otherTriage, failedTriage, 999999]) {
       const res = await sendReply(id, { body: "Hello", draftTriageId });

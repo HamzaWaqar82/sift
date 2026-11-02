@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
-import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
+import { giveTicketTo, seedTestUsers, signInAs, triageViaApi } from "./helpers";
 
 // The provider is the only fake. Real Gemini is never called.
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
@@ -18,7 +18,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await sql`truncate tickets restart identity cascade`;
-  await sql`truncate ai_usage`; // triage counts against the daily cap (ticket 08)
+  await sql`truncate ai_usage, jobs`; // triage counts against the daily cap (ticket 08)
   provider.mockReset();
 });
 afterAll(async () => {
@@ -42,10 +42,7 @@ async function triageWith(id: number, output: unknown) {
     rawText: typeof output === "string" ? output : JSON.stringify(output),
     model: "fake-model",
   });
-  const { POST } = await import("@/app/api/tickets/[id]/triage/route");
-  return POST(new Request(`http://localhost/api/tickets/${id}/triage`, { method: "POST", headers: { cookie: agent } }), {
-    params: Promise.resolve({ id: String(id) }),
-  });
+  return triageViaApi(id, agent);
 }
 
 async function readTicket(id: number) {
@@ -67,7 +64,7 @@ const GROUNDED = {
 describe("help article next to the reply (ticket detail API)", () => {
   it("returns the referenced article's title and full body", async () => {
     const id = await newTicket();
-    expect((await triageWith(id, GROUNDED)).status).toBe(200);
+    expect((await triageWith(id, GROUNDED)).status).toBe(202);
 
     const ticket = await readTicket(id);
 
@@ -80,7 +77,7 @@ describe("help article next to the reply (ticket detail API)", () => {
 
   it("marks a valid draft with no article as ungrounded", async () => {
     const id = await newTicket();
-    expect((await triageWith(id, { ...GROUNDED, article_id: null })).status).toBe(200);
+    expect((await triageWith(id, { ...GROUNDED, article_id: null })).status).toBe(202);
 
     const ticket = await readTicket(id);
 
@@ -94,14 +91,14 @@ describe("help article next to the reply (ticket detail API)", () => {
 
   it("never exposes an invented article: an unknown id fails triage and gives no grounding", async () => {
     const id = await newTicket();
-    expect((await triageWith(id, { ...GROUNDED, article_id: "made-up-article" })).status).toBe(502);
+    expect((await triageWith(id, { ...GROUNDED, article_id: "made-up-article" })).status).toBe(202);
 
     expect((await readTicket(id)).grounding).toBeNull();
   });
 
   it("uses the latest valid triage, ignoring a later failed attempt", async () => {
     const id = await newTicket();
-    expect((await triageWith(id, GROUNDED)).status).toBe(200);
+    expect((await triageWith(id, GROUNDED)).status).toBe(202);
     // A later failed attempt (e.g. a failed admin regenerate).
     await sql`insert into triage_results (ticket_id, error, raw_output, model, created_at)
       values (${id}, 'bad output', 'not json', 'fake-model', now() + interval '1 second')`;

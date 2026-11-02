@@ -3,6 +3,8 @@ import { LogOut, MonitorOff, Plus, ShieldCheck } from "lucide-react";
 import { Suspense } from "react";
 import { isAdmin, requirePageUser } from "@/lib/auth";
 import { overdueCount } from "@/lib/tickets/overdue";
+import { aiBudget } from "@/lib/triage";
+import { AiBudgetChip } from "./_components/ai-budget-chip";
 import { Wordmark } from "../_components/logo";
 import { BandSearch } from "./_components/band-search";
 import { InboxKeys } from "./_components/inbox-keys";
@@ -33,7 +35,7 @@ function SpeedStripe() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requirePageUser();
-  const overdue = await overdueCount();
+  const [overdue, budget] = await Promise.all([overdueCount(), aiBudget()]);
   const initials = user.name
     .split(/\s+/)
     .map((p) => p[0])
@@ -68,6 +70,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
             <div className="order-2 mb-2.5 ml-auto flex items-center gap-2 sm:gap-3 md:order-4 md:ml-0">
               <LiveStatusChip />
+              <AiBudgetChip budget={budget} href={isAdmin(user) ? "/admin/ai" : undefined} />
               {overdue > 0 && (
                 <Link
                   href="/?overdue=1"
@@ -82,7 +85,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <Link
                   href="/admin"
                   className="inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-band-ink transition-colors duration-150 hover:bg-white/10 hover:text-white"
-                  title="Admin: users and audit log"
+                  title="Admin: users, audit log and AI"
                 >
                   <ShieldCheck className="size-4" strokeWidth={1.5} aria-hidden="true" />
                   <span className="hidden font-display text-xs font-semibold uppercase tracking-[0.08em] sm:inline">Admin</span>

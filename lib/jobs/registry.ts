@@ -15,6 +15,19 @@ export type JobHandler<P = unknown> = {
 /** Spec backoff for retried work: 10s, 1m, 5m, 30m, 2h. */
 export const DEFAULT_BACKOFF_SECONDS = [10, 60, 5 * 60, 30 * 60, 2 * 60 * 60] as const;
 
+/**
+ * Thrown by a handler to run the job again at `runAt` without using up an attempt or counting as
+ * a failure: e.g. an AI call refused by a rate limit, which is waiting, not broken.
+ */
+export class RetryLater extends Error {
+  readonly runAt: Date;
+  constructor(runAt: Date, reason: string) {
+    super(reason);
+    this.name = "RetryLater";
+    this.runAt = runAt;
+  }
+}
+
 const handlers = new Map<string, JobHandler>();
 
 export function registerJobHandler<P>(kind: string, handler: JobHandler<P>) {

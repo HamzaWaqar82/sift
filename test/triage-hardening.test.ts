@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
-import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
+import { giveTicketTo, runTriageJobs, seedTestUsers, signInAs } from "./helpers";
 
 // Seam 2: the single provider function is the only thing faked. Real Gemini is never called.
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
@@ -20,7 +20,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await sql`truncate tickets restart identity cascade`;
-  await sql`truncate ai_usage`;
+  await sql`truncate ai_usage, jobs`;
   provider.mockReset();
   process.env.AI_DAILY_CAP = "50";
 });
@@ -39,9 +39,10 @@ async function newTicket(subject = "Charged twice", body = "I was charged twice 
   return ticket.id;
 }
 
+/** POSTs a triage request, then lets the worker run any job it queued. */
 async function postTriage(id: number, cookie = agent, body?: unknown) {
   const { POST } = await import("@/app/api/tickets/[id]/triage/route");
-  return POST(
+  const res = await POST(
     new Request(`http://localhost/api/tickets/${id}/triage`, {
       method: "POST",
       headers: { cookie, ...(body ? { "content-type": "application/json" } : {}) },
@@ -49,6 +50,8 @@ async function postTriage(id: number, cookie = agent, body?: unknown) {
     }),
     { params: Promise.resolve({ id: String(id) }) },
   );
+  await runTriageJobs();
+  return res;
 }
 
 async function readTriage(id: number, cookie = agent) {
@@ -82,36 +85,19 @@ function modelReturns(output: unknown) {
 }
 
 describe("daily AI cap", () => {
-  it("refuses triage with 429 and a clear message once the day's cap is reached, without calling the provider", async () => {
+  it("shows Daily AI limit reached once the day's cap is used, without calling the provider", async () => {
     process.env.AI_DAILY_CAP = "2";
     modelReturns(VALID);
     const [a, b, c] = [await newTicket(), await newTicket(), await newTicket()];
-    expect((await postTriage(a)).status).toBe(200);
-    expect((await postTriage(b)).status).toBe(200);
+    expect((await postTriage(a)).status).toBe(202);
+    expect((await postTriage(b)).status).toBe(202);
 
-    const res = await postTriage(c);
+    await postTriage(c);
 
-    expect(res.status).toBe(429);
-    const json = await res.json();
-    expect(json.error).toMatch(/daily AI limit/i);
-    expect(json.error).toMatch(/manually/i);
-    expect(provider).toHaveBeenCalledTimes(2);
-    expect((await (await readTriage(c)).json()).triage).toBeNull();
-  });
-
-  it("allows triage again on the next UTC day", async () => {
-    process.env.AI_DAILY_CAP = "1";
-    modelReturns(VALID);
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-10-31T23:50:00Z"));
-    const [a, b] = [await newTicket(), await newTicket()];
-    expect((await postTriage(a)).status).toBe(200);
-    expect((await postTriage(b)).status).toBe(429);
-
-    vi.setSystemTime(new Date("2026-11-01T00:05:00Z"));
-    const res = await postTriage(b);
-
-    expect(res.status).toBe(200);
+    const json = await (await readTriage(c)).json();
+    expect(json.state.state).toBe("daily_cap_reached");
+    expect(json.state.retryAt).not.toBeNull();
+    expect(json.triage).toBeNull();
     expect(provider).toHaveBeenCalledTimes(2);
   });
 
@@ -130,7 +116,7 @@ describe("daily AI cap", () => {
   it("still lets an agent reply when the cap is reached", async () => {
     process.env.AI_DAILY_CAP = "0";
     const id = await newTicket();
-    expect((await postTriage(id)).status).toBe(429);
+    await postTriage(id);
 
     const res = await sendReply(id, "Hi Maria, we have refunded the duplicate charge.");
 
@@ -203,10 +189,7 @@ describe("regenerate (admin only)", () => {
 
     const res = await postTriage(id, admin, { force: true });
 
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.cached).toBe(false);
-    expect(json.triage).toMatchObject({ status: "ok", urgency: "high", draft: "Hi Maria, a regenerated draft." });
+    expect(res.status).toBe(202);
     expect(provider).toHaveBeenCalledTimes(2);
     const later = await (await readTriage(id)).json();
     expect(later.triage).toMatchObject({ urgency: "high" });
@@ -219,9 +202,9 @@ describe("regenerate (admin only)", () => {
     const id = await newTicket();
     await postTriage(id);
 
-    const res = await postTriage(id, admin, { force: true });
+    await postTriage(id, admin, { force: true });
 
-    expect(res.status).toBe(429);
+    expect((await (await readTriage(id)).json()).state.state).toBe("daily_cap_reached");
     expect(provider).toHaveBeenCalledTimes(1);
   });
 
@@ -237,7 +220,7 @@ describe("list badges", () => {
     modelReturns(VALID);
     const [triaged, failed, plain] = [await newTicket(), await newTicket(), await newTicket()];
     await postTriage(triaged);
-    provider.mockRejectedValueOnce(new Error("timeout"));
+    provider.mockResolvedValueOnce({ rawText: "not json", model: "fake-model" });
     await postTriage(failed);
 
     const { GET } = await import("@/app/api/tickets/route");
