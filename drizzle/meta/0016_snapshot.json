@@ -1,5 +1,5 @@
 {
-  "id": "6b76da7e-12d7-4631-8793-323cf7db1714",
+  "id": "84caf240-b4ea-4d7e-8265-aa36b99eb545",
   "prevId": "191e5296-54aa-4f9a-8d61-eacecaac1071",
   "version": "7",
   "dialect": "postgresql",
@@ -610,6 +610,124 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.imap_failures": {
+      "name": "imap_failures",
+      "schema": "",
+      "columns": {
+        "uid_validity": {
+          "name": "uid_validity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "uid": {
+          "name": "uid",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "first_failed_at": {
+          "name": "first_failed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_failed_at": {
+          "name": "last_failed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gave_up_at": {
+          "name": "gave_up_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "imap_failures_uid_validity_uid_pk": {
+          "name": "imap_failures_uid_validity_uid_pk",
+          "columns": [
+            "uid_validity",
+            "uid"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.imap_state": {
+      "name": "imap_state",
+      "schema": "",
+      "columns": {
+        "mailbox": {
+          "name": "mailbox",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "uid_validity": {
+          "name": "uid_validity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_uid": {
+          "name": "last_uid",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "connected": {
+          "name": "connected",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "status_at": {
+          "name": "status_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -1285,6 +1403,125 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.replies": {
+      "name": "replies",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "ticket_id": {
+          "name": "ticket_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ai_draft": {
+          "name": "ai_draft",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "final_body": {
+          "name": "final_body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sent_by": {
+          "name": "sent_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "edited": {
+          "name": "edited",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "replies_ticket_sent_idx": {
+          "name": "replies_ticket_sent_idx",
+          "columns": [
+            {
+              "expression": "ticket_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sent_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "replies_ticket_id_tickets_id_fk": {
+          "name": "replies_ticket_id_tickets_id_fk",
+          "tableFrom": "replies",
+          "tableTo": "tickets",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "replies_sent_by_users_id_fk": {
+          "name": "replies_sent_by_users_id_fk",
+          "tableFrom": "replies",
+          "tableTo": "users",
+          "columnsFrom": [
+            "sent_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "replies_idempotency_key_unique": {
+          "name": "replies_idempotency_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.saved_views": {
       "name": "saved_views",
       "schema": "",
@@ -1582,6 +1819,12 @@
         },
         "subject": {
           "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
           "type": "text",
           "primaryKey": false,
           "notNull": true

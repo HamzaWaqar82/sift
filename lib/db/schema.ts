@@ -6,6 +6,7 @@
 // AI usage) so later slices built in parallel do not produce conflicting migrations.
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   date,
@@ -17,6 +18,7 @@ import {
   text,
   timestamp,
   jsonb,
+  primaryKey,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -417,6 +419,39 @@ export const workerHeartbeats = pgTable("worker_heartbeats", {
   name: text("name").primaryKey(),
   beatAt: tsMs("beat_at").notNull().defaultNow(),
 });
+
+/**
+ * The worker's IMAP reader position in a mailbox (lib/inbound/imap.ts). Staging and production
+ * read the same Gmail INBOX, so each keeps its own position in its own database and never
+ * relies on \Seen. UIDs only mean something within one UIDVALIDITY. `connected`/`status_at`
+ * let /api/health report the reader, which runs in another process.
+ */
+export const imapState = pgTable("imap_state", {
+  mailbox: text("mailbox").primaryKey(),
+  uidValidity: text("uid_validity").notNull(),
+  lastUid: bigint("last_uid", { mode: "number" }).notNull().default(0),
+  connected: boolean("connected").notNull().default(false),
+  statusAt: tsMs("status_at").notNull().defaultNow(),
+  lastError: text("last_error"),
+});
+
+/**
+ * Inbound mails that failed to ingest. A failing UID is retried on every pass; after enough
+ * attempts over enough time it is given up (`gave_up_at`) so it cannot block the mail behind it.
+ */
+export const imapFailures = pgTable(
+  "imap_failures",
+  {
+    uidValidity: text("uid_validity").notNull(),
+    uid: bigint("uid", { mode: "number" }).notNull(),
+    attempts: integer("attempts").notNull().default(1),
+    firstFailedAt: tsMs("first_failed_at").notNull().defaultNow(),
+    lastFailedAt: tsMs("last_failed_at").notNull().defaultNow(),
+    lastError: text("last_error").notNull(),
+    gaveUpAt: tsMs("gave_up_at"),
+  },
+  (t) => [primaryKey({ columns: [t.uidValidity, t.uid] })],
+);
 
 /**
  * Mail kept by the `capture` transport instead of being delivered (dev and staging), shown at

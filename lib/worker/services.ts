@@ -1,7 +1,8 @@
 // The worker's long-lived services. Each runs until its signal aborts; a service that throws
 // is restarted after a pause so one bad connection never takes the others down.
-// Ticket 15 adds the IMAP reader here as another entry.
 import { setTimeout as sleep } from "node:timers/promises";
+import { imapReader } from "@/lib/inbound/imap";
+import { connectGmailInbox } from "@/lib/inbound/imap-client";
 import { runDueJobs } from "@/lib/jobs";
 import { HEARTBEAT_INTERVAL_MS, recordHeartbeat } from "./heartbeat";
 
@@ -33,7 +34,8 @@ export const heartbeat: WorkerService = {
   },
 };
 
-export const WORKER_SERVICES: WorkerService[] = [heartbeat, jobLoop];
+/** The IMAP reader (lib/inbound/imap.ts) connects only when MAIL_TRANSPORT=gmail. */
+export const WORKER_SERVICES: WorkerService[] = [heartbeat, jobLoop, imapReader(connectGmailInbox)];
 
 const RESTART_DELAY_MS = 5_000;
 

@@ -20,18 +20,18 @@ describe("GET /api/health", () => {
     const res = await health();
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: "ok", db: "up", worker: "up", mail: "fake" });
+    expect(await res.json()).toEqual({ status: "ok", db: "up", worker: "up", mail: "fake", imap: "off" });
   });
 
   it("reports the worker down when it has never beaten or its last beat is stale", async () => {
-    expect(await (await health()).json()).toEqual({ status: "ok", db: "up", worker: "down", mail: "fake" });
+    expect(await (await health()).json()).toEqual({ status: "ok", db: "up", worker: "down", mail: "fake", imap: "off" });
 
     await recordHeartbeat();
     await sql`update worker_heartbeats set beat_at = now() - interval '2 minutes'`;
 
     const res = await health();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: "ok", db: "up", worker: "down", mail: "fake" });
+    expect(await res.json()).toEqual({ status: "ok", db: "up", worker: "down", mail: "fake", imap: "off" });
   });
 
   it("returns 503 when the database is unreachable", async () => {
@@ -42,7 +42,7 @@ describe("GET /api/health", () => {
       const res = await health();
 
       expect(res.status).toBe(503);
-      expect(await res.json()).toEqual({ status: "error", db: "down", worker: "unknown", mail: "unknown" });
+      expect(await res.json()).toEqual({ status: "error", db: "down", worker: "unknown", mail: "unknown", imap: "unknown" });
     } finally {
       process.env.DATABASE_URL = original;
       vi.resetModules();
