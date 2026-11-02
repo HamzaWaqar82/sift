@@ -162,7 +162,9 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
         </div>
       </div>
 
-      <Thread messages={thread} notes={notes} customer={ticket.customerName ?? ticket.customerEmail} />
+      <Thread messages={thread} notes={notes} customer={ticket.customerName ?? ticket.customerEmail}
+        canRetry={!ticketPermission(user, "retry_send", ticket)}
+      />
 
       <NoteForm ticketId={ticket.id} />
 
@@ -175,6 +177,7 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
           ticketId={ticket.id}
           blocked={sendDenial ? (ticket.assignee ? { owner: ticket.assignee.name } : { unassigned: true }) : null}
           draft={triage && { triageId: triage.id, text: triage.draft }}
+          latestMessageId={messages.at(-1)?.id ?? null}
           closed={ticket.status === "closed"}
           compact={embedded}
         />
