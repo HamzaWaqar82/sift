@@ -10,7 +10,6 @@ import { enqueueAutoTriage } from "@/lib/triage/auto";
 import {
   helpArticles,
   messages,
-  replies,
   tickets,
   triageResults,
   users,
@@ -32,6 +31,7 @@ export type NewTicket = {
   customerEmail: string;
   customerName?: string | null;
   subject: string;
+  /** The customer's opening message; stored as the ticket's first inbound message. */
   body: string;
   source: TicketSource;
   /** Inbound email message id. When it already exists, the existing ticket is returned instead. */
@@ -154,7 +154,6 @@ export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; 
         customerEmail: input.customerEmail,
         customerName: input.customerName ?? null,
         subject: input.subject,
-        body: input.body,
         source: input.source,
         externalMessageId: input.externalMessageId ?? null,
         ...(input.createdAt ? { createdAt: input.createdAt, updatedAt: input.createdAt } : {}),
@@ -168,7 +167,7 @@ export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; 
       fromAddress: ticket.customerEmail,
       toAddress: input.email?.toAddress ?? null,
       subject: ticket.subject,
-      bodyText: ticket.body,
+      bodyText: input.body,
       bodyHtml: input.email?.bodyHtml ?? null,
       messageId: ticket.externalMessageId,
       inReplyTo: input.email?.inReplyTo ?? null,
@@ -234,7 +233,7 @@ export type CloseResult =
  */
 export async function closeTicket(id: number, opts: { anyTicket: boolean }): Promise<CloseResult> {
   const db = getDb();
-  const hasReply = sql`exists (select 1 from ${replies} where ${replies.ticketId} = ${tickets.id})`;
+  const hasReply = sql`exists (select 1 from ${messages} where ${messages.ticketId} = ${tickets.id} and ${messages.direction} = 'outbound')`;
   const [closed] = await db
     .update(tickets)
     .set({ status: "closed", updatedAt: sql`now()` })

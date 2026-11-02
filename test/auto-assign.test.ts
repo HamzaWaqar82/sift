@@ -42,8 +42,8 @@ async function newTicket(): Promise<number | null> {
 
 async function giveOpenTickets(name: Name, count: number) {
   for (let i = 0; i < count; i++) {
-    await sql`insert into tickets (customer_email, subject, body, source, assignee_id)
-              values ('x@example.com', 's', 'b', 'form', ${ids[name]})`;
+    await sql`insert into tickets (customer_email, subject, source, assignee_id)
+              values ('x@example.com', 's', 'form', ${ids[name]})`;
   }
 }
 

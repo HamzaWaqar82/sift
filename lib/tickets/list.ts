@@ -26,7 +26,7 @@ export const SEARCH_MAX_LENGTH = 100;
 export type TicketSort = "newest" | "oldest" | "updated" | "overdue";
 
 export type TicketFilters = {
-  /** Case-insensitive substring over subject, body, customer name and customer email. */
+  /** Case-insensitive substring over subject, any message text, customer name and customer email. */
   q?: string;
   /** Any of these statuses. */
   status?: TicketStatus[];

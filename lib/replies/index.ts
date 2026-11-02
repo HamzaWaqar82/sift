@@ -1,10 +1,10 @@
-// Sending and listing replies. Each reply is also an outbound message in `messages`, queued for
-// the `mail.send` job; `replies` is kept alongside until the contract step (ticket 16).
-import { and, asc, desc, eq, isNotNull, notInArray, or } from "drizzle-orm";
+// Sending and listing replies. A reply is an outbound message in `messages`, queued for the
+// `mail.send` job.
+import { and, asc, desc, eq, isNotNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { publish } from "@/lib/events";
-import { messages, replies, tickets, users, type MessageStatus, type UserRef } from "@/lib/db/schema";
+import { messages, tickets, users, type MessageStatus, type UserRef } from "@/lib/db/schema";
 import { enqueueJob } from "@/lib/jobs";
 import { generateMessageId } from "@/lib/mail";
 import { suppressionOf } from "@/lib/mail/suppression";
@@ -44,6 +44,7 @@ export const replyInputSchema = z
 
 export type ReplyInput = z.infer<typeof replyInputSchema>;
 
+/** An outbound message as the replies API shows it (`id` is the message id). */
 export type Reply = {
   id: number;
   ticketId: number;
@@ -84,8 +85,7 @@ export class SuppressedRecipientError extends Error {
 export type QueuedMessage = { id: number; status: MessageStatus };
 
 /**
- * Queues a reply. In one transaction it records the reply, inserts a `queued` outbound message
- * with its own Message-ID and threading headers, and enqueues `mail.send`. The ticket becomes
+ * Queues a reply. In one transaction it inserts a `queued` outbound message with its own Message-ID and threading headers, and enqueues `mail.send`. The ticket becomes
  * replied only once the job delivers it (lib/replies/delivery.ts).
  * The AI draft is loaded from the stored triage result the client says it displayed
  * (`draftTriageId`), never taken from the client, and `edited` is computed against it. So an
@@ -135,13 +135,6 @@ export async function sendReply(
     const suppressed = await suppressionOf(ticket.customerEmail, tx);
     if (suppressed) throw new SuppressedRecipientError(ticket.customerEmail, suppressed.reason);
 
-    const [row] = await tx
-      .insert(replies)
-      .values({ ticketId, aiDraft, finalBody: input.body, sentBy: userId, edited, idempotencyKey: input.idempotencyKey })
-      .onConflictDoNothing({ target: replies.idempotencyKey })
-      .returning({ id: replies.id });
-    if (!row) return false;
-
     // Thread under the newest message (the customer's email or our last reply), and reference
     // the whole conversation: clients thread on any id they hold, so consecutive replies group
     // together even when the customer's original isn't in the mailbox. Failed replies never went out.
@@ -177,7 +170,10 @@ export async function sendReply(
         edited,
         idempotencyKey: input.idempotencyKey,
       })
+      // The same key already used on another ticket (the lock above only orders sends per ticket).
+      .onConflictDoNothing({ target: messages.idempotencyKey })
       .returning({ id: messages.id });
+    if (!message) return false;
     await enqueueJob(MAIL_SEND, { messageId: message.id } satisfies MailSendPayload, {}, tx);
     const [author] = await tx.select({ name: users.name }).from(users).where(eq(users.id, userId));
     await publish(
@@ -194,33 +190,33 @@ export async function sendReply(
     return true;
   });
 
-  const [reply] = await selectReplies().where(eq(replies.idempotencyKey, input.idempotencyKey)).limit(1);
+  const [{ status, ...reply }] = await selectReplies().where(eq(messages.idempotencyKey, input.idempotencyKey)).limit(1);
   if (reply.ticketId !== ticketId) throw new IdempotencyConflictError();
-  const [message] = await getDb()
-    .select({ id: messages.id, status: messages.status })
-    .from(messages)
-    .where(eq(messages.idempotencyKey, input.idempotencyKey));
-  return { reply, message: { id: message.id, status: message.status! }, created };
+  return { reply, message: { id: reply.id, status: status! }, created };
 }
 
-/** Every reply on a ticket, oldest first, with its sender. */
+/** Every reply (outbound message) on a ticket, oldest first, with its sender. */
 export async function listReplies(ticketId: number): Promise<Reply[]> {
-  return selectReplies().where(eq(replies.ticketId, ticketId)).orderBy(asc(replies.sentAt), asc(replies.id));
+  const rows = await selectReplies()
+    .where(and(eq(messages.ticketId, ticketId), eq(messages.direction, "outbound")))
+    .orderBy(asc(messages.occurredAt), asc(messages.id));
+  return rows.map(({ status: _status, ...reply }) => reply);
 }
 
 function selectReplies() {
   return getDb()
     .select({
-      id: replies.id,
-      ticketId: replies.ticketId,
-      aiDraft: replies.aiDraft,
-      finalBody: replies.finalBody,
-      edited: replies.edited,
-      sentAt: replies.sentAt,
+      id: messages.id,
+      ticketId: messages.ticketId,
+      aiDraft: messages.aiDraft,
+      finalBody: messages.bodyText,
+      edited: sql<boolean>`coalesce(${messages.edited}, true)`,
+      sentAt: messages.occurredAt,
       sentBy: { id: users.id, name: users.name, email: users.email },
+      status: messages.status,
     })
-    .from(replies)
-    .innerJoin(users, eq(users.id, replies.sentBy))
+    .from(messages)
+    .innerJoin(users, eq(users.id, messages.authorId))
     .$dynamic();
 }
 

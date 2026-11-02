@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
+import { seedTestUsers, signInAs, giveTicketTo, openingText } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let agent: string;
@@ -145,10 +145,9 @@ describe("new ticket form: validation and sanitisation", () => {
     const { ticket } = await res.json();
     expect(ticket.customerName).toBe("Zoe evil");
     expect(ticket.subject).toBe("Hello world \u00E9"); // newline in a subject becomes a space; e + combining acute -> \u00E9
-    expect(ticket.body).toBe("line1\nline2\tTabbed[31m\nline3x");
-    const [row] = await sql`select subject, body from tickets where id = ${ticket.id}`;
+    expect(await openingText(ticket.id)).toBe("line1\nline2\tTabbed[31m\nline3x");
+    const [row] = await sql`select subject from tickets where id = ${ticket.id}`;
     expect(row.subject).toBe(ticket.subject);
-    expect(row.body).not.toMatch(/\u0000/);
   });
 
   it("a string that is only control characters counts as empty", async () => {
@@ -174,11 +173,10 @@ describe("hostile text is stored and returned literally (plain text, never HTML)
       expect(res.status).toBe(201);
       const { ticket } = await res.json();
       expect(ticket.subject).toBe(text);
-      expect(ticket.body).toBe(text);
+      expect(await openingText(ticket.id)).toBe(text);
       await giveTicketTo(ticket.id);
       const fetched = await readTicket(ticket.id);
       expect(fetched.subject).toBe(text);
-      expect(fetched.body).toBe(text);
       expect(fetched.customerName).toBe(text);
       // And a reply with the same text.
       const { POST } = await import("@/app/api/tickets/[id]/replies/route");
@@ -221,7 +219,8 @@ describe("webhook payload sanitisation", () => {
     const res = await hook({ ...mail, subject: "A\u0000B", body: "x\u0007y\nz" });
     expect(res.status).toBe(201);
     const { ticket } = await res.json();
-    expect(ticket).toMatchObject({ customerEmail: "cust@example.com", subject: "AB", body: "xy\nz" });
+    expect(ticket).toMatchObject({ customerEmail: "cust@example.com", subject: "AB" });
+    expect(await openingText(ticket.id)).toBe("xy\nz");
     await expectErrorShape(await hook({ ...mail, message_id: "<m2>", subject: "  " }), 400, "validation_failed");
     await expectErrorShape(await hook({ ...mail, message_id: "<m3>", extra: 1 }), 400, "validation_failed");
     await expectErrorShape(await hook({ ...mail, message_id: "<m4>", from: { email: "x@y.com", role: "admin" } }), 400, "validation_failed");

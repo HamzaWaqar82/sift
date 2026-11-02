@@ -214,7 +214,7 @@ export async function runTriageJob(payload: TriageJobPayload, job: JobContext): 
   const latest = await latestInboundMessage(ticketId);
   const input: TriageInput = {
     subject: redactContactDetails(ticket.subject),
-    body: redactContactDetails(latest?.bodyText ?? ticket.body),
+    body: redactContactDetails(latest?.bodyText ?? ""),
     articles,
   };
 

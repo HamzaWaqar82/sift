@@ -100,14 +100,14 @@ export async function seedSampleTickets(url, now = new Date(), env = process.env
       // The ticket and its first inbound message, as createTicket writes them.
       const rows = await sql`
         with t as (
-          insert into tickets (customer_email, customer_name, subject, body, source, external_message_id, created_at, updated_at, last_inbound_at)
-          values (${e.from.email.toLowerCase()}, ${e.from.name ?? null}, ${e.subject}, ${e.body}, 'webhook',
+          insert into tickets (customer_email, customer_name, subject, source, external_message_id, created_at, updated_at, last_inbound_at)
+          values (${e.from.email.toLowerCase()}, ${e.from.name ?? null}, ${e.subject}, 'webhook',
                   ${e.message_id}, ${e.received_at}, ${e.received_at}, ${e.received_at})
           on conflict (external_message_id) do nothing
           returning *
         )
         insert into messages (ticket_id, direction, from_address, subject, body_text, message_id, occurred_at)
-        select id, 'inbound', customer_email, subject, body, external_message_id, created_at from t
+        select id, 'inbound', customer_email, subject, ${e.body}, external_message_id, created_at from t
         returning ticket_id`;
       created += rows.length;
     }

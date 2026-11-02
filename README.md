@@ -68,7 +68,7 @@ All endpoints are JSON and need a session cookie, except `/api/health`, `/api/we
 
 | Param | Values | Notes |
 |---|---|---|
-| `q` | text | Case-insensitive substring match on subject, body, customer name and customer email. `%`, `_` and `\` match literally. Trimmed, capped at 100 characters; blank means no search. |
+| `q` | text | Case-insensitive substring match on subject, the text of any message in the thread, customer name and customer email. `%`, `_` and `\` match literally. Trimmed, capped at 100 characters; blank means no search. |
 | `status` | `open`, `replied`, `closed`, or a comma list (`open,replied`) | |
 | `assignee` | `me`, `unassigned`, or a user id | |
 | `category` | `billing`, `technical`, `account`, `feature_request`, `other` (comma list) | Taken from the ticket's current (latest valid) triage. Untriaged tickets never match. |
@@ -81,7 +81,7 @@ All endpoints are JSON and need a session cookie, except `/api/health`, `/api/we
 
 Response: `200 {"tickets": TicketListItem[], "nextCursor": string | null}`, where `TicketListItem = {id, customerEmail, customerName, subject, source, status, createdAt, updatedAt, assignee: {id, name, email} | null, triage: {ok: true, category, urgency} | {ok: false} | null, overdueWaitingSince: string | null}` (`overdueWaitingSince` is when the unanswered customer message arrived, set only while the ticket is overdue). Paging is keyset-based on (sort key, id), so new tickets never cause a duplicate or a skip. With `sort=updated`, a ticket that changes during paging can move, but paging never errors. Empty parameters are ignored. Invalid values give 400 `validation_failed`, with `fields` keyed by parameter name.
 
-Search uses plain `ILIKE` (a sequential scan). That is fine at this volume (hundreds to low thousands of tickets). Past that, add a `pg_trgm` GIN index on the subject, body and customer columns.
+Search uses plain `ILIKE` (a sequential scan). That is fine at this volume (hundreds to low thousands of tickets). Past that, add `pg_trgm` GIN indexes on `messages.body_text` and the ticket subject and customer columns.
 
 ### Board: `GET /api/tickets/board`
 

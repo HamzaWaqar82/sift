@@ -154,3 +154,9 @@ export async function triageViaApi(id: number, cookie: string, body?: unknown) {
   await runTriageJobs();
   return res;
 }
+
+/** The text of a ticket's opening (first inbound) message. */
+export async function openingText(ticketId: number): Promise<string | undefined> {
+  const { listMessages } = await import("@/lib/messages");
+  return (await listMessages(ticketId)).find((m) => m.direction === "inbound")?.bodyText;
+}

@@ -85,12 +85,12 @@ async function appendInbound(ticketId: number, body: string, at: Date) {
 
 const messagesOf = (id: number) => sql`select * from messages where ticket_id = ${id} order by occurred_at, id`;
 
-describe("writes go to messages as well as the old fields", () => {
+describe("writes go to messages", () => {
   it("a form ticket gets its body as the first inbound message and sets last_inbound_at", async () => {
     const id = await createViaForm({ customerEmail: "cust@example.com", subject: "Export failing", body: "My CSV export fails." });
 
     const [t] = await sql`select * from tickets where id = ${id}`;
-    expect(t.body).toBe("My CSV export fails.");
+    expect(t).not.toHaveProperty("body");
     expect(t.last_inbound_at.toISOString()).toBe(t.created_at.toISOString());
     expect(t.last_outbound_at).toBeNull();
     const msgs = await messagesOf(id);
@@ -202,7 +202,7 @@ describe("search covers every message", () => {
   });
 });
 
-describe("migration 0004 back-fill", () => {
+describe("migrations", () => {
   const base = new URL(process.env.DATABASE_URL!);
   const dbName = `${decodeURIComponent(base.pathname.slice(1))}_migr`;
   const url = new URL(base);
@@ -219,26 +219,34 @@ describe("migration 0004 back-fill", () => {
     }
   }
 
-  it("turns ticket bodies into inbound messages and replies into sent outbound messages", async () => {
+  /** A fresh scratch database migrated up to (not including) migration `idx`. */
+  async function freshDbBefore(idx: number) {
     const a = postgres(admin.toString(), { max: 1, onnotice: () => {} });
     await a.unsafe(`drop database if exists "${dbName}"`);
     await a.unsafe(`create database "${dbName}"`);
     await a.end();
-
-    // The migrations folder as it was before 0004.
     const old = await mkdtemp(join(tmpdir(), "sift-migr-"));
     try {
       await cp("drizzle", old, { recursive: true });
       const journalPath = join(old, "meta", "_journal.json");
       const journal = JSON.parse(await readFile(journalPath, "utf8"));
-      journal.entries = journal.entries.filter((e: { idx: number }) => e.idx < 4);
+      journal.entries = journal.entries.filter((e: { idx: number }) => e.idx < idx);
       await writeFile(journalPath, JSON.stringify(journal));
       await migrateTo(old);
     } finally {
       await rm(old, { recursive: true, force: true });
     }
+    return postgres(url.toString(), { max: 1, onnotice: () => {} });
+  }
 
-    const db = postgres(url.toString(), { max: 1, onnotice: () => {} });
+  async function dropScratch() {
+    const a2 = postgres(admin.toString(), { max: 1, onnotice: () => {} });
+    await a2.unsafe(`drop database if exists "${dbName}"`);
+    await a2.end();
+  }
+
+  it("0004 turns ticket bodies into inbound messages and replies into sent outbound messages", async () => {
+    const db = await freshDbBefore(4);
     try {
       const [u] = await db`insert into users (email, name, role, password_hash) values ('a@x', 'A', 'agent', 'h') returning id`;
       const t0 = new Date("2026-01-01T10:00:00.123Z");
@@ -268,9 +276,49 @@ describe("migration 0004 back-fill", () => {
       ]);
     } finally {
       await db.end();
-      const a2 = postgres(admin.toString(), { max: 1, onnotice: () => {} });
-      await a2.unsafe(`drop database if exists "${dbName}"`);
-      await a2.end();
+      await dropScratch();
     }
   }, 60_000); // creating a scratch database on the shared server can be slow
+
+  it("0015 drops tickets.body and replies, first copying anything messages lacks", async () => {
+    const db = await freshDbBefore(15);
+    try {
+      const [u] = await db`insert into users (email, name, role, email_verified) values ('a@x', 'A', 'agent', true) returning id`;
+      const t0 = new Date("2026-01-01T10:00:00.123Z");
+      const s1 = new Date("2026-01-01T11:00:00.456Z");
+      // In step: a ticket whose body and reply are already messages.
+      const [t1] = await db`insert into tickets (customer_email, subject, body, source, created_at, updated_at)
+        values ('c1@example.com', 'Refund', 'Please refund.', 'form', ${t0}, ${t0}) returning id`;
+      await db`insert into messages (ticket_id, direction, from_address, subject, body_text, occurred_at)
+        values (${t1.id}, 'inbound', 'c1@example.com', 'Refund', 'Please refund.', ${t0})`;
+      await db`insert into replies (ticket_id, ai_draft, final_body, sent_by, sent_at, edited, idempotency_key)
+        values (${t1.id}, null, 'Done.', ${u.id}, ${s1}, true, 'key-1')`;
+      await db`insert into messages (ticket_id, direction, author_id, to_address, subject, body_text, occurred_at, status, attempts, edited, idempotency_key)
+        values (${t1.id}, 'outbound', ${u.id}, 'c1@example.com', 'Re: Refund', 'Done.', ${s1}, 'sent', 1, true, 'key-1')`;
+      // Drifted: a ticket with no messages at all and a reply missing from messages.
+      const [t2] = await db`insert into tickets (customer_email, subject, body, source, created_at, updated_at)
+        values ('c2@example.com', 'Hello', 'Hi there.', 'form', ${t0}, ${t0}) returning id`;
+      await db`insert into replies (ticket_id, ai_draft, final_body, sent_by, sent_at, edited, idempotency_key)
+        values (${t2.id}, 'Hi!', 'Hi!', ${u.id}, ${s1}, false, 'key-2')`;
+
+      await migrateTo("drizzle");
+
+      const msgs = await db`select ticket_id, direction, author_id, body_text, status, idempotency_key, ai_draft, edited from messages order by ticket_id, occurred_at, id`;
+      expect(msgs).toEqual([
+        { ticket_id: t1.id, direction: "inbound", author_id: null, body_text: "Please refund.", status: null, idempotency_key: null, ai_draft: null, edited: null },
+        { ticket_id: t1.id, direction: "outbound", author_id: u.id, body_text: "Done.", status: "sent", idempotency_key: "key-1", ai_draft: null, edited: true },
+        { ticket_id: t2.id, direction: "inbound", author_id: null, body_text: "Hi there.", status: null, idempotency_key: null, ai_draft: null, edited: null },
+        { ticket_id: t2.id, direction: "outbound", author_id: u.id, body_text: "Hi!", status: "sent", idempotency_key: "key-2", ai_draft: "Hi!", edited: false },
+      ]);
+      const [t2After] = await db`select last_inbound_at, last_outbound_at from tickets where id = ${t2.id}`;
+      expect([t2After.last_inbound_at.toISOString(), t2After.last_outbound_at.toISOString()]).toEqual([t0.toISOString(), s1.toISOString()]);
+      const leftovers = await db`
+        select (select count(*)::int from information_schema.columns where table_name = 'tickets' and column_name = 'body') as body_col,
+               (select count(*)::int from information_schema.tables where table_name = 'replies') as replies_table`;
+      expect(leftovers[0]).toEqual({ body_col: 0, replies_table: 0 });
+    } finally {
+      await db.end();
+      await dropScratch();
+    }
+  }, 60_000);
 });

@@ -1,7 +1,7 @@
 // One-off: deletes the demo tickets seeded from samples/emails.json, so production never replies to
 // their real-looking customer addresses. Only tickets whose external_message_id is one of the
 // samples' message_ids are touched; real tickets never are. Idempotent: a second run removes 0.
-// Messages, notes, triage and replies go with the ticket (on delete cascade); queued jobs about
+// Messages, notes and triage go with the ticket (on delete cascade); queued jobs about
 // those tickets or their messages hold ids only in their JSON payload, so they are deleted here.
 // In production:  docker compose -f compose.prod.yaml run --rm migrate node scripts/clear-demo-data.mjs
 import postgres from "postgres";
