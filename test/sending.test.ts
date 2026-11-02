@@ -125,6 +125,20 @@ describe("queued sending", () => {
     });
   });
 
+  it("references earlier replies too, so a customer's client threads every reply together", async () => {
+    const id = await inbound("<in-1@example.com>");
+    await send(id, { body: "First." });
+    await runDueJobs();
+    await send(id, { body: "Second." });
+    await runDueJobs();
+
+    const [first, second] = mailer.sent;
+    expect(second).toMatchObject({
+      inReplyTo: first.messageId,
+      references: ["<in-1@example.com>", first.messageId],
+    });
+  });
+
   it("never mails internal notes", async () => {
     const id = await inbound("<in-1@example.com>");
     const { addNote } = await import("@/lib/notes");
