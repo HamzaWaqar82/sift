@@ -74,7 +74,7 @@ export function ViewsBar({ params, saved }: { params: Record<string, string>; sa
   const savedMatch = !activeKey ? saved.find((v) => sameState(params, v.params) && (v.params.view ?? "inbox") === (view ?? "inbox")) : undefined;
 
   return (
-    <nav aria-label="Saved views" className="relative z-20 h-11 border-b border-rule-soft bg-panel-2 md:sticky md:top-14">
+    <nav aria-label="Saved views" className="relative z-20 h-11 border-b border-rule-soft bg-panel-2 md:sticky md:top-[var(--band-h)]">
       <ul
         ref={strip}
         onScroll={measureEdges}

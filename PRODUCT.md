@@ -16,16 +16,18 @@ Bring the team's tickets into one place and help them reply faster and more safe
 One AI call per ticket returns a category, urgency and a draft reply grounded in a named help article; the result is validated against a strict shape before anyone sees it, and an agent always reviews, edits and sends. The draft, the article it came from, and who sent what are all visible side by side.
 
 ## Operating Context
-- Tickets arrive by a secured webhook (inbound email) or are logged by an agent from a form (phone/chat).
-- Agents scan and filter the queue, open a ticket (already triaged in the background, budget permitting) or request triage by hand, read the draft beside its source article, edit, and send. Replies are recorded in-app (no email delivery).
-- Admins reassign tickets and may regenerate a triage; agents cannot.
-- Agents may not close a ticket without a sent reply.
+- Customer email arrives from the team's Gmail inbox (read over IMAP); customer replies thread onto their ticket. Agents log phone and chat tickets from a form.
+- Every ticket has one owner. New tickets go to the available agent with the fewest open tickets, or wait in *Needs an owner* to be claimed. Agents set themselves Available or Away, release tickets back to the pool, and an unopened assignment moves on after 4 hours. Overdue tickets (no reply for 24 hours) are flagged and returned to the pool.
+- The owner opens a ticket (already triaged in the background, budget permitting) or requests triage by hand, reads the draft beside its source article, edits, and sends a real email through Gmail. Staff can leave internal notes that are never emailed.
+- The queue updates live; a toast says when someone or something else assigns you a ticket.
+- Admins invite and deactivate staff, change roles, reassign tickets and may regenerate a triage; agents cannot.
+- Only the owner or an admin may close a ticket, and an agent only after a sent reply.
 
 ## Capabilities and Constraints
-- Roles: agent, admin. Seeded accounts; no sign-up.
+- Roles: agent, admin. Accounts by admin invitation; no public sign-up. Password reset and email change by emailed link.
 - Statuses: open, replied, closed. Categories: billing, technical, account, feature request, other. Urgency: low, medium, high.
 - Ticket views: inbox split-pane (default), table, board by status; search; filters by status, assignee, category, urgency, source; cursor pagination.
-- Stack: Next.js App Router, Tailwind, Postgres/Drizzle, Zod; deployed on AWS EC2.
+- Stack: Next.js App Router, Tailwind, Postgres/Drizzle, Zod, Better Auth, a background worker for mail, IMAP and AI jobs; deployed on AWS EC2. Every change goes to staging first (with smoke tests); production changes only through an owner-approved `staging → main` promotion.
 - AI spend is capped. New tickets are triaged automatically on arrival (this reverses the original "triage on demand only" rule); automatic triage may use only `100 - AI_MANUAL_RESERVE_PCT` percent of the daily cap, manual clicks run first, and customer replies never trigger a new AI call. Results are cached per ticket.
 
 ## Brand Commitments

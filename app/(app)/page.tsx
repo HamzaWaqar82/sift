@@ -83,7 +83,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
     <div className="grid flex-1 md:grid-cols-[minmax(22rem,28rem)_1fr] xl:grid-cols-[30rem_1fr]">
       <section
         aria-label="Ticket list"
-        className={`${openId ? "hidden md:flex" : "flex"} min-w-0 flex-col border-rule-soft md:sticky md:top-[6.25rem] md:h-[calc(100vh-6.25rem)] md:overflow-y-auto md:border-r`}
+        className={`${openId ? "hidden md:flex" : "flex"} min-w-0 flex-col border-rule-soft md:sticky md:top-[calc(var(--band-h)+2.75rem)] md:h-[calc(100vh-var(--band-h)-2.75rem)] md:overflow-y-auto md:border-r`}
       >
         <div className="px-3 pt-4 pb-2 lg:px-4">{rail}</div>
         <Suspense key={key} fallback={<ListSkeleton rows={8} />}>

@@ -274,6 +274,7 @@ export async function reopenTicket(id: number): Promise<ReopenResult> {
 export async function assignTicket(
   id: number,
   assigneeId: number | null,
+  actorId: number,
 ): Promise<{ ok: true; ticket: TicketDetail } | { ok: false; reason: "ticket-not-found" | "unknown-user" }> {
   const db = getDb();
   if (assigneeId !== null) {
@@ -287,7 +288,7 @@ export async function assignTicket(
     .returning({ id: tickets.id });
   if (!row) return { ok: false, reason: "ticket-not-found" };
   await publish(
-    assigneeId === null ? { type: "ticket.released", ticketId: id } : { type: "ticket.assigned", ticketId: id, assigneeId },
+    assigneeId === null ? { type: "ticket.released", ticketId: id } : { type: "ticket.assigned", ticketId: id, assigneeId, actorId },
   );
   return { ok: true, ticket: (await getTicket(id))! };
 }
@@ -309,7 +310,7 @@ export async function claimTicket(id: number, userId: number): Promise<ClaimResu
     .returning({ id: tickets.id });
   if (claimed) {
     await recordAudit({ actorId: userId, action: "ticket_claimed", ticketId: id, targetUserId: userId });
-    await publish({ type: "ticket.assigned", ticketId: id, assigneeId: userId });
+    await publish({ type: "ticket.assigned", ticketId: id, assigneeId: userId, actorId: userId });
   }
   const ticket = await getTicket(id);
   if (!ticket) return { ok: false, reason: "not-found" };

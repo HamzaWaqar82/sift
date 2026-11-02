@@ -7,6 +7,11 @@
  * lilac carbon copies for sent replies. Every text/background pair below is WCAG AA (see
  * the contrast notes beside each token).
  */
+/* Header band height; BandHeight updates it when the band wraps to more rows. */
+:root {
+  --band-h: 3.5rem;
+}
+
 @theme {
   /* Fonts (self-hosted via @fontsource, imported in app/layout.tsx). */
   --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
@@ -260,7 +265,32 @@
     right: -9px;
     clip-path: inset(-1px 8px -1px -1px);
   }
-  /* Vertical perforation for wide coupons (stub at left); only from md up. */
+  /*
+   * Vertical perforation for wide coupons (stub at left): `.perf-v` from md up, `.perf-cv` once
+   * its `@container` is 36rem wide (the ticket coupon, which also sits in the narrow inbox pane).
+   */
+  .perf-v::before,
+  .perf-v::after,
+  .perf-cv::before,
+  .perf-cv::after {
+    position: absolute;
+    left: -9px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--perf-bg, var(--color-ground));
+    border: 1px solid var(--color-rule);
+  }
+  .perf-v::before,
+  .perf-cv::before {
+    top: -9px;
+    clip-path: inset(8px -1px -1px -1px);
+  }
+  .perf-v::after,
+  .perf-cv::after {
+    bottom: -9px;
+    clip-path: inset(-1px -1px 8px -1px);
+  }
   @media (min-width: 48rem) {
     .perf-v {
       position: relative;
@@ -269,21 +299,16 @@
     .perf-v::before,
     .perf-v::after {
       content: "";
-      position: absolute;
-      left: -9px;
-      width: 16px;
-      height: 16px;
-      border-radius: 999px;
-      background: var(--perf-bg, var(--color-ground));
-      border: 1px solid var(--color-rule);
     }
-    .perf-v::before {
-      top: -9px;
-      clip-path: inset(8px -1px -1px -1px);
+  }
+  @container (min-width: 36rem) {
+    .perf-cv {
+      position: relative;
+      border-left: 1.5px dashed var(--color-rule);
     }
-    .perf-v::after {
-      bottom: -9px;
-      clip-path: inset(-1px -1px 8px -1px);
+    .perf-cv::before,
+    .perf-cv::after {
+      content: "";
     }
   }
 

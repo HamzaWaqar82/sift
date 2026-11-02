@@ -50,7 +50,7 @@ export async function ackTimeoutSweep() {
     if (!moved) continue;
     await recordAudit({ actorId: null, action: "ticket_released", ticketId: id, targetUserId: ownerId, metadata: { reason: "not opened" } });
     await publish({ type: "ticket.released", ticketId: id });
-    if (moved.next !== null) await publish({ type: "ticket.assigned", ticketId: id, assigneeId: moved.next });
+    if (moved.next !== null) await publish({ type: "ticket.assigned", ticketId: id, assigneeId: moved.next, actorId: null });
   }
 }
 

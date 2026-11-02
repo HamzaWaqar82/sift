@@ -7,7 +7,6 @@ import "@fontsource/barlow-condensed/700.css";
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./globals.css";
-import { DirectionContract } from "./_components/contract";
 
 export const metadata: Metadata = {
   title: { default: "Sift", template: "%s · Sift" },
@@ -22,7 +21,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-ground text-ink antialiased">
-        <DirectionContract />
         {children}
       </body>
     </html>

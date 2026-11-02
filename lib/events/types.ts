@@ -5,7 +5,8 @@ import type { MessageDirection, MessageStatus, TicketStatus } from "@/lib/db/sch
 export type SiftEvent =
   | { type: "ticket.created"; ticketId: number; status: TicketStatus; assigneeId: number | null }
   | { type: "ticket.updated"; ticketId: number; status: TicketStatus }
-  | { type: "ticket.assigned"; ticketId: number; assigneeId: number }
+  /** `actorId` is who assigned it: null for automatic routing and sweeps. */
+  | { type: "ticket.assigned"; ticketId: number; assigneeId: number; actorId: number | null }
   | { type: "ticket.released"; ticketId: number }
   /** `authorName` is the staff member's name (outbound only), for "<name> just replied". */
   | {

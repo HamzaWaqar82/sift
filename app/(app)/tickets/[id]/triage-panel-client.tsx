@@ -127,9 +127,7 @@ export function TriagePanelClient({
           {!working && s === "failed" && <span className="font-medium text-jet-ink">Failed</span>}
           {!working && s === "none" && (
             <span className="text-ink-2">
-              {canRequest
-                ? "Not triaged yet. Triage counts toward today’s AI limit."
-                : "Not triaged yet. The ticket’s owner can run triage."}
+              {canRequest ? "Not triaged yet." : "Not triaged yet. The owner can run triage."}
             </span>
           )}
           {showResult && !working && (
@@ -178,7 +176,7 @@ export function TriagePanelClient({
       {confirming && (
         <div className="flex flex-wrap items-center gap-3 border-t border-rule-soft bg-panel-2 px-4 py-3 text-sm" role="group" aria-label="Confirm regenerate">
           <p className="flex-1 text-ink-2">
-            Regenerate makes a new AI call (it counts toward today&apos;s limit) and replaces the current draft for everyone.
+            Makes a new AI call and replaces the draft for everyone.
           </p>
           <button type="button" className="btn btn-sm btn-navy" onClick={() => run(true)} autoFocus>
             Regenerate draft
