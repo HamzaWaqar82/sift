@@ -90,6 +90,11 @@ describe("/dev/mailbox availability", () => {
     expect(devMailboxEnabled()).toBe(true);
     process.env.APP_ENV = "production";
     expect(devMailboxEnabled()).toBe(false);
+    // Staging with real Gmail still captures mail to anyone off the allowlist.
+    process.env.MAIL_TRANSPORT = "gmail";
+    expect(devMailboxEnabled()).toBe(false);
+    process.env.APP_ENV = "staging";
+    expect(devMailboxEnabled()).toBe(true);
     delete process.env.APP_ENV;
     process.env.MAIL_TRANSPORT = "fake";
     expect(devMailboxEnabled()).toBe(false);

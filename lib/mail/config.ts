@@ -48,11 +48,14 @@ export function appEnv(): "development" | "staging" | "production" {
   return value === "production" || value === "staging" ? value : "development";
 }
 
-/** /dev/mailbox exists only while mail is captured, and never in production. */
+/**
+ * /dev/mailbox exists only while mail is captured, and never in production. Outside production
+ * the gmail transport still captures mail to anyone off MAIL_ALLOWED_RECIPIENTS, so it counts.
+ */
 export function devMailboxEnabled(): boolean {
   if (appEnv() === "production") return false;
   try {
-    return mailTransport() === "capture";
+    return mailTransport() !== "fake";
   } catch {
     return false;
   }
