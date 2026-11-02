@@ -25,6 +25,7 @@
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.7.14",
     "drizzle-orm": "^0.45.4",
+    "imapflow": "2.5.5",
     "jose": "^6.2.14",
     "lucide-react": "^1.66.0",
     "mailparser": "3.9.40",
