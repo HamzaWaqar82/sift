@@ -96,6 +96,9 @@ jobs:
           git pull -q --ff-only origin "$2"
           echo "Server HEAD: $(git rev-parse HEAD) (CI commit: $3)"
           docker compose -f compose.prod.yaml up -d --build
+          # Caddy's Caddyfile is a single-file bind mount: git replaces the file, so a running
+          # Caddy keeps the old copy. Recreate it so routing changes always take effect.
+          docker compose -f compose.prod.yaml up -d --no-deps --force-recreate caddy
           REMOTE
       - name: Health check
         run: |
