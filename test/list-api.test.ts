@@ -51,8 +51,8 @@ async function seed(rows: Seed[]) {
   for (const r of rows) {
     i++;
     const [t] = await sql`
-      insert into tickets (customer_email, customer_name, subject, body, source, status, assignee_id, created_at, updated_at)
-      values (${r.email ?? `c${i}@example.com`}, ${r.name ?? null}, ${r.subject}, ${r.body ?? "hello"}, ${r.source ?? "webhook"},
+      insert into tickets (customer_email, customer_name, subject, source, status, assignee_id, created_at, updated_at)
+      values (${r.email ?? `c${i}@example.com`}, ${r.name ?? null}, ${r.subject}, ${r.source ?? "webhook"},
               ${r.status ?? "open"}, ${r.assignee ?? null}, ${at(r.minute)}, ${at(r.updatedMinute ?? r.minute)})
       returning id`;
     await sql`insert into messages (ticket_id, direction, subject, body_text, occurred_at)

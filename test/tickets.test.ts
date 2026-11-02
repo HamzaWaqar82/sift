@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
+import { seedTestUsers, signInAs, giveTicketTo, openingText } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let agent: string;
@@ -194,7 +194,8 @@ describe("createTicket (shared by form and webhook)", () => {
     const again = await createTicket({ ...input, body: "changed" });
 
     expect(first.created).toBe(true);
-    expect(again).toMatchObject({ created: false, ticket: { id: first.ticket.id, body: "first" } });
+    expect(again).toMatchObject({ created: false, ticket: { id: first.ticket.id } });
+    expect(await openingText(first.ticket.id)).toBe("first");
     expect((await (await listTickets("")).json()).tickets).toHaveLength(1);
   });
 });
@@ -204,7 +205,7 @@ describe("ticket detail and close", () => {
     const [id] = await insertTickets(1);
     await giveTicketTo(id);
 
-    await sql`insert into replies (ticket_id, final_body, sent_by, edited, idempotency_key) values (${id}, 'Done', (select id from users where email = 'alice@sift.local'), true, ${`k-${id}-close-test`})`;
+    await sql`insert into messages (ticket_id, direction, author_id, subject, body_text, status, edited) values (${id}, 'outbound', (select id from users where email = 'alice@sift.local'), 'Re: x', 'Done', 'sent', true)`;
     const res = await closeTicket(id);
 
     expect(res.status).toBe(200);
@@ -244,7 +245,6 @@ describe("create ticket from the form", () => {
       id: ticket.id,
       customerEmail: "pat@example.com",
       subject: "Card declined",
-      body: "My card keeps getting declined at checkout.",
       source: "form",
       status: "open",
       assignee: null,

@@ -133,7 +133,7 @@ describe("reassign", () => {
     await assign(ticket.id, { assigneeId: await userId("ben@sift.local") }, admin);
     expect((await sql`select assigned_by from tickets where id = ${ticket.id}`)[0].assigned_by).toBe("admin");
 
-    await sql`insert into replies (ticket_id, final_body, sent_by, edited, idempotency_key) values (${ticket.id}, 'Done', ${await userId("ben@sift.local")}, true, ${`k-${ticket.id}-reassign-test`})`;
+    await sql`insert into messages (ticket_id, direction, author_id, subject, body_text, status, edited) values (${ticket.id}, 'outbound', ${await userId("ben@sift.local")}, 'Re: x', 'Done', 'sent', true)`;
     const { POST } = await import("@/app/api/tickets/[id]/close/route");
     const close = (cookie: string) =>
       POST(new Request(`http://localhost/api/tickets/${ticket.id}/close`, { method: "POST", headers: { cookie } }), {

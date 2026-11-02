@@ -160,7 +160,7 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
 
           <section aria-label="Customer message" className="px-4 py-4 sm:px-5">
             <h2 className="field-label mb-2">Customer message</h2>
-            <CappedText text={opening?.bodyText ?? ticket.body} compact={embedded} />
+            <CappedText text={opening?.bodyText ?? ""} compact={embedded} />
           </section>
         </div>
       </div>

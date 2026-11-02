@@ -1,7 +1,8 @@
 // Drizzle table definitions: the whole Sift data model.
 // After editing, run `npm run db:generate` to create a migration in ./drizzle.
 //
-// Ticket 03 added every table at once (tickets, help articles, triage results, replies,
+// Ticket 03 added every table at once (tickets, help articles, triage results, replies (since
+// replaced by messages),
 // AI usage) so later slices built in parallel do not produce conflicting migrations.
 import { sql } from "drizzle-orm";
 import {
@@ -149,7 +150,6 @@ export const tickets = pgTable(
     customerEmail: text("customer_email").notNull(),
     customerName: text("customer_name"),
     subject: text("subject").notNull(),
-    body: text("body").notNull(),
     source: ticketSource("source").notNull(),
     status: ticketStatus("status").notNull().default("open"),
     assigneeId: integer("assignee_id").references(() => users.id, { onDelete: "set null" }),
@@ -218,33 +218,11 @@ export const triageResults = pgTable(
   ],
 );
 
-/** A sent reply (recorded in the app only; no email is delivered). */
-export const replies = pgTable(
-  "replies",
-  {
-    id: serial("id").primaryKey(),
-    ticketId: integer("ticket_id")
-      .notNull()
-      .references(() => tickets.id, { onDelete: "cascade" }),
-    aiDraft: text("ai_draft"),
-    finalBody: text("final_body").notNull(),
-    sentBy: integer("sent_by")
-      .notNull()
-      .references(() => users.id),
-    sentAt: tsMs("sent_at").notNull().defaultNow(),
-    edited: boolean("edited").notNull(),
-    /** Client-generated key; a second submit with the same key does not create a second reply. */
-    idempotencyKey: text("idempotency_key").notNull().unique(),
-  },
-  (t) => [index("replies_ticket_sent_idx").on(t.ticketId, t.sentAt)],
-);
-
 /**
- * The conversation: every inbound and outbound message of a ticket.
- * Expand step: `tickets.body` and `replies` are still written alongside and are dropped once
- * threading is live. The first inbound message is the ticket body; outbound messages carry the
- * same idempotency key as their `replies` row. Delivery state (status, attempts, last error,
- * provider id) applies to outbound only; inbound rows leave status null.
+ * The conversation: every inbound and outbound message of a ticket. The first inbound message
+ * is the customer's opening email or form submission; outbound messages are staff replies.
+ * Delivery state (status, attempts, last error, provider id) applies to outbound only; inbound
+ * rows leave status null.
  */
 export const messages = pgTable(
   "messages",

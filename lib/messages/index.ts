@@ -1,5 +1,5 @@
-// Reading a ticket's conversation. Writes happen where tickets and replies are created, in the
-// same transaction, so `messages` never drifts from `tickets.body` and `replies` (expand step).
+// Reading a ticket's conversation. Writes happen where tickets are created, replies are sent and
+// inbound mail is ingested.
 import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { messages, users, type MessageDirection, type MessageStatus, type UserRef } from "@/lib/db/schema";

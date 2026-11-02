@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { seedTestUsers, signInAs } from "./helpers";
+import { openingText, seedTestUsers, signInAs } from "./helpers";
 
 const SECRET = "test-webhook-secret";
 process.env.WEBHOOK_SECRET = SECRET;
@@ -70,7 +70,7 @@ describe("POST /api/webhook", () => {
       status: "open",
       externalMessageId: "<mr-live-01-export@hollowayfoods.com>",
     });
-    expect(ticket.body).toContain("error E-EXP-504");
+    expect(await openingText(ticket.id)).toContain("error E-EXP-504");
     // Server receive time, not the sender's received_at.
     const createdAt = new Date(ticket.createdAt).getTime();
     expect(createdAt).toBeGreaterThanOrEqual(before - 1000);

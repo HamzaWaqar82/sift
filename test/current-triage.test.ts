@@ -193,7 +193,7 @@ describe("edited flag is computed against the draft the agent saw", () => {
       const res = await sendReply(id, { body: "Hello", draftTriageId });
       expect(res.status).toBe(400);
     }
-    const [{ count }] = await sql`select count(*)::int as count from replies`;
+    const [{ count }] = await sql`select count(*)::int as count from messages where direction = 'outbound'`;
     expect(count).toBe(0);
   });
 });

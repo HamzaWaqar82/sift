@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import postgres from "postgres";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { seedSampleTickets } from "../scripts/seed.mjs";
+import { openingText } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 const samplesDir = new URL("../samples/", import.meta.url);
@@ -29,10 +30,10 @@ describe("sample ticket seed", () => {
       customer_email: first.from.email,
       customer_name: first.from.name,
       subject: first.subject,
-      body: first.body,
       source: "webhook",
       assignee_id: null,
     });
+    expect(await openingText(row.id)).toBe(first.body);
     // Seeded in the samples' order, aged relative to the seed run.
     expect(rows.map((r) => r.external_message_id)).toEqual(
       [...samples].sort((a, b) => Date.parse(a.received_at) - Date.parse(b.received_at)).map((s) => s.message_id),

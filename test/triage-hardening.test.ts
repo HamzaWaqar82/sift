@@ -164,8 +164,8 @@ describe("redaction before the provider", () => {
     const id = await newTicket("Help", "Reach me at maria@example.com");
     await postTriage(id);
 
-    const { getTicket } = await import("@/lib/tickets");
-    expect((await getTicket(id))!.body).toBe("Reach me at maria@example.com");
+    const { listMessages } = await import("@/lib/messages");
+    expect((await listMessages(id))[0].bodyText).toBe("Reach me at maria@example.com");
   });
 });
 
