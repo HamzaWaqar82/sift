@@ -4,11 +4,13 @@ import { Suspense } from "react";
 import { isAdmin, requirePageUser } from "@/lib/auth";
 import { overdueCount } from "@/lib/tickets/overdue";
 import { aiBudget } from "@/lib/triage";
+import { listTeamPresence } from "@/lib/users/availability";
 import { AiBudgetChip } from "./_components/ai-budget-chip";
 import { Wordmark } from "../_components/logo";
 import { BandSearch } from "./_components/band-search";
 import { InboxKeys } from "./_components/inbox-keys";
 import { LiveStatusChip, LiveUpdates } from "./_components/live-updates";
+import { PresenceMenu } from "./_components/presence-menu";
 import { ViewTabs } from "./_components/view-tabs";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +37,7 @@ function SpeedStripe() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requirePageUser();
-  const [overdue, budget] = await Promise.all([overdueCount(), aiBudget()]);
+  const [overdue, budget, team] = await Promise.all([overdueCount(), aiBudget(), listTeamPresence()]);
   const initials = user.name
     .split(/\s+/)
     .map((p) => p[0])
@@ -70,6 +72,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
             <div className="order-2 mb-2.5 ml-auto flex items-center gap-2 sm:gap-3 md:order-4 md:ml-0">
               <LiveStatusChip />
+              <PresenceMenu meId={user.id} team={team} admin={isAdmin(user)} />
               <AiBudgetChip budget={budget} href={isAdmin(user) ? "/admin/ai" : undefined} />
               {overdue > 0 && (
                 <Link

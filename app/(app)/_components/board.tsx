@@ -81,7 +81,7 @@ function BoardColumn({ status, initial, query }: { status: TicketStatus; initial
         ) : (
           <ul className="space-y-2" aria-busy={loading}>
             {tickets.map((t) => (
-              <li key={t.id}>
+              <li key={t.id} data-ticket-id={t.id}>
                 <Link
                   href={`/tickets/${t.id}`}
                   data-ticket-row

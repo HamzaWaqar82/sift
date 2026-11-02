@@ -12,7 +12,7 @@ export function TicketTable({ tickets, params }: { tickets: TicketListItem[]; pa
     {/* Under 640px: stacked cards, one per row, same order and data. */}
     <ul className="space-y-1.5 sm:hidden" aria-label="Tickets">
       {tickets.map((t) => (
-        <li key={t.id}>
+        <li key={t.id} data-ticket-id={t.id}>
           <Link
             href={`/tickets/${t.id}`}
             data-ticket-row
@@ -67,7 +67,7 @@ export function TicketTable({ tickets, params }: { tickets: TicketListItem[]; pa
         </thead>
         <tbody>
           {tickets.map((t) => (
-            <tr key={t.id} className="group h-11 border-b border-rule-soft transition-colors duration-150 last:border-b-0 hover:bg-navy-hover">
+            <tr key={t.id} data-ticket-id={t.id} className="group h-11 border-b border-rule-soft transition-colors duration-150 last:border-b-0 hover:bg-navy-hover">
               <td className="px-3 py-2">
                 <TicketNo id={t.id} className="text-xs" />
               </td>
