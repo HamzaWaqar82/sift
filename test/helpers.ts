@@ -49,6 +49,8 @@ async function testHash(password: string) {
 /**
  * Seeds the five staff accounts and puts them back as seeded: test password, name, role, active,
  * with fresh rate limits. The seed itself leaves existing accounts alone, so tests reset them here.
+ * They start Away, so new tickets land in the pool unless a test makes someone available
+ * (auto-assignment is covered in auto-assign.test.ts).
  */
 export async function seedTestUsers() {
   await seedUsers(process.env.DATABASE_URL!, TEST_PASSWORDS);
@@ -56,12 +58,13 @@ export async function seedTestUsers() {
   try {
     for (const u of SEED_USERS) {
       const [user] = await sql`
-        update users set name = ${u.name}, role = ${u.role}, deactivated_at = null
+        update users set name = ${u.name}, role = ${u.role}, deactivated_at = null, availability = 'away'
         where email = ${u.email} returning id`;
       await sql`
         update account set password = ${await testHash(TEST_PASSWORDS[u.key])}
         where user_id = ${user.id} and provider_id = 'credential'`;
     }
+    await sql`update users set availability = 'away' where email like '%@sift.local'`;
   } finally {
     await sql.end();
   }

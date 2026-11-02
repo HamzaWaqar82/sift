@@ -17,7 +17,8 @@ export type AuditAction =
   | "email_change_requested"
   | "email_changed"
   | "ticket_claimed"
-  | "ticket_released";
+  | "ticket_released"
+  | "availability_changed";
 
 export async function recordAudit(entry: {
   /** Null means the system (or an unauthenticated caller). */

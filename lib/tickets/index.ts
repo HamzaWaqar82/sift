@@ -21,6 +21,7 @@ import {
   type UserRef,
 } from "@/lib/db/schema";
 
+import { autoAssign } from "./auto-assign";
 import { isValidTriage } from "./triage-rule";
 
 export { isValidTriage };
@@ -137,7 +138,8 @@ export async function getValidTriage(ticketId: number, triageId: number): Promis
 }
 
 /**
- * Creates a ticket and its first inbound message, in one transaction. Idempotent on
+ * Creates a ticket and its first inbound message and auto-assigns it (see auto-assign.ts), in one
+ * transaction. Idempotent on
  * `externalMessageId`: a repeat returns the existing ticket with `created: false` and changes nothing.
  */
 export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; created: boolean }> {
@@ -166,11 +168,9 @@ export async function createTicket(input: NewTicket): Promise<{ ticket: Ticket; 
       messageId: ticket.externalMessageId,
       occurredAt: ticket.createdAt,
     });
-    const [withInbound] = await tx
-      .update(tickets)
-      .set({ lastInboundAt: ticket.createdAt })
-      .where(eq(tickets.id, ticket.id))
-      .returning();
+    await tx.update(tickets).set({ lastInboundAt: ticket.createdAt }).where(eq(tickets.id, ticket.id));
+    await autoAssign(tx, ticket.id);
+    const [withInbound] = await tx.select().from(tickets).where(eq(tickets.id, ticket.id));
     await publish(
       { type: "ticket.created", ticketId: ticket.id, status: withInbound.status, assigneeId: withInbound.assigneeId },
       tx,
