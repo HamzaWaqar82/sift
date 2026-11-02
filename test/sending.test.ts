@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { runDueJobs } from "@/lib/jobs";
 import { FakeMailer, PermanentMailError, setMailer } from "@/lib/mail";
-import { giveTicketTo, seedTestUsers, signInAs } from "./helpers";
+import { giveTicketTo, seedTestUsers, signInAs, skipAutoTriage } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 let alice: string;
@@ -38,6 +38,7 @@ async function inbound(messageId: string, opts: { subject?: string; email?: stri
     externalMessageId: messageId,
   });
   await giveTicketTo(ticket.id);
+  await skipAutoTriage(ticket.id);
   return ticket.id;
 }
 

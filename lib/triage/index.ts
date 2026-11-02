@@ -12,6 +12,7 @@ import { enqueueJob } from "@/lib/jobs/queue";
 import { type JobContext, RetryLater } from "@/lib/jobs/registry";
 import { latestInboundMessage } from "@/lib/messages";
 import { getTicket, getValidTriage, type CurrentTriage } from "@/lib/tickets";
+import { TRIAGE_AUTO, TRIAGE_MANUAL, TRIAGE_MAX_ATTEMPTS, TRIAGE_PRIORITY } from "./auto";
 import { triageModelName } from "./config";
 import { AiRateLimitedError } from "./errors";
 import { AI_JOB_KINDS, finishAiCall, reserveAiCall } from "./limiter";
@@ -23,11 +24,7 @@ import { getTriageState, setTriageState, type TriageState } from "./state";
 export { aiBudget, type AiBudget } from "./limiter";
 export { getTriageState, PENDING_STATES, type TriageState, type TriageStateName } from "./state";
 
-export const TRIAGE_MANUAL = "triage.manual";
-/** Job priorities: a manual click goes ahead of queued automatic triage (ticket 18: `auto`). */
-export const TRIAGE_PRIORITY: Record<AiLane, number> = { manual: 100, auto: 0 };
-/** Provider errors (not rate limits) get this many tries in all before the triage is Failed. */
-export const TRIAGE_MAX_ATTEMPTS = 3;
+export { TRIAGE_AUTO, TRIAGE_MANUAL, TRIAGE_MAX_ATTEMPTS, TRIAGE_PRIORITY } from "./auto";
 export const TRIAGE_BACKOFF_SECONDS = [10, 30] as const;
 /** Wait after a provider 429 that carried no Retry-After. */
 export const DEFAULT_RATE_LIMIT_WAIT_SECONDS = 60;
@@ -129,7 +126,8 @@ async function pendingTriageJob(ticketId: number): Promise<number | null> {
 /**
  * Asks for a ticket's triage. The current valid result is returned as is (no provider call)
  * unless it is out of date or `force` is set (admin regenerate; the route checks the role).
- * Otherwise a high-priority `triage.manual` job is enqueued, unless one is already pending.
+ * Otherwise a high-priority `triage.manual` job is enqueued (or the queued automatic one
+ * promoted), unless one is already pending.
  */
 export async function requestTriage(
   ticketId: number,
@@ -143,8 +141,20 @@ export async function requestTriage(
     return { kind: "cached", triage: validView(ticket.currentTriage), state: current };
   }
 
-  if ((await pendingTriageJob(ticketId)) === null) {
-    const payload: TriageJobPayload = { ticketId, lane: "manual", requestedBy: opts.requestedBy, force: opts.force };
+  const payload: TriageJobPayload = { ticketId, lane: "manual", requestedBy: opts.requestedBy, force: opts.force };
+  // A click on a ticket still waiting for automatic triage turns that job into the manual one:
+  // it jumps the queue, spends the manual lane's budget, and runs now even if the automatic
+  // share of today's cap is used up.
+  const promoted = await getDb().execute(sql`
+    update jobs set kind = ${TRIAGE_MANUAL}, priority = ${TRIAGE_PRIORITY.manual}, run_at = now(),
+      payload = ${JSON.stringify(payload)}::jsonb
+    where kind = ${TRIAGE_AUTO} and status = 'queued' and (payload->>'ticketId')::int = ${ticketId}
+    returning id`);
+  if (promoted.length > 0) {
+    await setTriageState(ticketId, "queued");
+    await publish({ type: "triage.updated", ticketId });
+    await publish({ type: "ai_budget.updated" });
+  } else if ((await pendingTriageJob(ticketId)) === null) {
     await getDb().transaction(async (tx) => {
       await enqueueJob(TRIAGE_MANUAL, payload, { priority: TRIAGE_PRIORITY.manual, maxAttempts: TRIAGE_MAX_ATTEMPTS }, tx);
       await setTriageState(ticketId, "queued", null, tx);

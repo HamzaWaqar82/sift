@@ -17,7 +17,7 @@ One AI call per ticket returns a category, urgency and a draft reply grounded in
 
 ## Operating Context
 - Tickets arrive by a secured webhook (inbound email) or are logged by an agent from a form (phone/chat).
-- Agents scan and filter the queue, open a ticket, request triage on demand (cost-capped per day), read the draft beside its source article, edit, and send. Replies are recorded in-app (no email delivery).
+- Agents scan and filter the queue, open a ticket (already triaged in the background, budget permitting) or request triage by hand, read the draft beside its source article, edit, and send. Replies are recorded in-app (no email delivery).
 - Admins reassign tickets and may regenerate a triage; agents cannot.
 - Agents may not close a ticket without a sent reply.
 
@@ -26,7 +26,7 @@ One AI call per ticket returns a category, urgency and a draft reply grounded in
 - Statuses: open, replied, closed. Categories: billing, technical, account, feature request, other. Urgency: low, medium, high.
 - Ticket views: inbox split-pane (default), table, board by status; search; filters by status, assignee, category, urgency, source; cursor pagination.
 - Stack: Next.js App Router, Tailwind, Postgres/Drizzle, Zod; deployed on AWS EC2.
-- AI spend is capped; triage is on demand and cached, never automatic.
+- AI spend is capped. New tickets are triaged automatically on arrival (this reverses the original "triage on demand only" rule); automatic triage may use only `100 - AI_MANUAL_RESERVE_PCT` percent of the daily cap, manual clicks run first, and customer replies never trigger a new AI call. Results are cached per ticket.
 
 ## Brand Commitments
 - Name: **Sift** (kept). No existing logo, colours or fonts; the visual identity is open.

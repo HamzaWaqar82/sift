@@ -163,17 +163,24 @@ async function ticketOfMessage(ids: (string | null | undefined)[]): Promise<numb
 }
 
 /** "RE: Fwd:  Export   failing" and "Export failing" are the same conversation. */
+const REPLY_PREFIX = /^\s*(re|fwd?|aw|sv|antw)(\[\d+\])?\s*:\s*/i;
+
 export function normalizeSubject(subject: string): string {
   let s = subject.trim().toLowerCase().replace(/\s+/g, " ");
   for (let prev = ""; prev !== s; ) {
     prev = s;
-    s = s.replace(/^(re|fwd?|aw|sv|antw)(\[\d+\])?\s*:\s*/i, "").trim();
+    s = s.replace(REPLY_PREFIX, "").trim();
   }
   return s === "(no subject)" ? "" : s;
 }
 
-/** Fallback for clients that drop threading headers: same sender, same subject, active in the window. */
+/**
+ * Fallback for clients that drop threading headers: same sender, same subject, active in the
+ * window. Only for subjects marked as a reply ("Re:", "Fwd:"...): a fresh email that merely
+ * repeats an old subject is a new problem and gets its own ticket.
+ */
 async function ticketBySubject(mail: InboundMail): Promise<number | null> {
+  if (!REPLY_PREFIX.test(mail.subject)) return null;
   const subject = normalizeSubject(mail.subject);
   if (!subject) return null;
   const activity = sql`greatest(${tickets.createdAt}, ${tickets.lastInboundAt}, ${tickets.lastOutboundAt})`;

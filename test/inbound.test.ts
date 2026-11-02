@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ingestInboundEmail } from "@/lib/inbound";
 import { listMessages } from "@/lib/messages";
 import { getTriageState } from "@/lib/triage/state";
-import { giveTicketTo, seedTestUsers } from "./helpers";
+import { giveTicketTo, seedTestUsers, skipAutoTriage } from "./helpers";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
 const eml = (name: string) => readFileSync(`test/fixtures/inbound/${name}.eml`, "utf8");
@@ -24,6 +24,7 @@ async function answeredTicket(replyId = "<out-1@sift.test>", to = "dana@example.
   const result = await ingestInboundEmail(eml("new"));
   if (result.kind !== "ticket") throw new Error("expected a ticket");
   const id = result.ticketId;
+  await skipAutoTriage(id);
   const [msg] = await sql`
     insert into messages (ticket_id, direction, author_id, from_address, to_address, subject, body_text, message_id, status, attempts, occurred_at)
     values (${id}, 'outbound', (select id from users where email = 'alice@sift.local'), 'support@sift.test', ${to},
@@ -136,6 +137,16 @@ describe("ingestInboundEmail", () => {
     await sql`update tickets set created_at = now() - interval '31 days', last_inbound_at = now() - interval '31 days',
       last_outbound_at = now() - interval '31 days' where id = ${ticketId}`;
     expect((await ingestInboundEmail(eml("reply-without-headers"))).kind).toBe("ticket");
+  });
+
+  it("a fresh email (no Re:) with an old ticket's subject is a new ticket, not merged into it", async () => {
+    const { ticketId } = await answeredTicket();
+    const fresh = eml("reply-without-headers")
+      .replace("Subject: RE: Fwd:  Export keeps   failing", "Subject: Export keeps failing")
+      .replace("<reply-2@example.com>", "<fresh-1@example.com>");
+    const result = await ingestInboundEmail(fresh);
+    expect(result.kind).toBe("ticket");
+    expect(result).not.toMatchObject({ ticketId });
   });
 
   it("an attachment is noted on the message, not imported", async () => {
