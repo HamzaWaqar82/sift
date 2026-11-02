@@ -9,6 +9,8 @@ const MAX_FAILURES = 3;
 const POLL_MS = 20_000;
 /** Events often come in bursts (a reply is a message plus a status change): refetch once. */
 const REFRESH_DEBOUNCE_MS = 250;
+/** How long a row assigned to me stays highlighted. */
+const HIGHLIGHT_MS = 60_000;
 
 type Listener = (event: SiftEvent) => void;
 type Live = { userId: number; paused: boolean; listen: (fn: Listener) => () => void };
@@ -25,6 +27,7 @@ export function LiveUpdates({ userId, children }: { userId: number; children: Re
   const router = useRouter();
   const [paused, setPaused] = useState(false);
   const [toast, setToast] = useState<number | null>(null);
+  const [fresh, setFresh] = useState<number[]>([]);
   const listeners = useRef(new Set<Listener>());
   const [live] = useState(() => ({
     listen(fn: Listener) {
@@ -62,7 +65,10 @@ export function LiveUpdates({ userId, children }: { userId: number; children: Re
         }
         for (const fn of listeners.current) fn(event);
         if ((event.type === "ticket.assigned" || event.type === "ticket.created") && event.assigneeId === userId) {
-          setToast(event.ticketId);
+          const id = event.ticketId;
+          setToast(id);
+          setFresh((ids) => [...ids.filter((x) => x !== id), id]);
+          setTimeout(() => setFresh((ids) => ids.filter((x) => x !== id)), HIGHLIGHT_MS);
         }
         refreshSoon();
       };
@@ -102,6 +108,14 @@ export function LiveUpdates({ userId, children }: { userId: number; children: Re
   return (
     <LiveContext.Provider value={{ userId, paused, listen: live.listen }}>
       {children}
+      {fresh.length > 0 && (
+        // Rows are server-rendered and re-rendered on every refresh, so the highlight is a rule
+        // keyed by ticket id (numbers only) rather than state inside each row.
+        <style>
+          {`${fresh.map((id) => `[data-ticket-id="${Number(id)}"] > *`).join(",")}{background-color:var(--color-ok-tint)}` +
+            `${fresh.map((id) => `[data-ticket-id="${Number(id)}"] > :first-child`).join(",")}{box-shadow:inset 3px 0 0 var(--color-ok-ink)}`}
+        </style>
+      )}
       {toast !== null && (
         <div
           role="status"

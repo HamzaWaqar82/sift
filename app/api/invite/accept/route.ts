@@ -3,7 +3,7 @@ import { z } from "zod";
 import { blockedFor, clientAddress, INVITE_ACCEPT_LIMIT, recordHit } from "@/lib/auth/rate-limit";
 import { apiError, parseBody, rateLimited, route } from "@/lib/http";
 import { acceptInvite, INVITE_INVALID_MESSAGE } from "@/lib/invitations";
-import { lineField } from "@/lib/validation";
+import { lineField, passwordField } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +11,7 @@ const bodySchema = z
   .object({
     token: z.string().min(1).max(200),
     name: lineField("Name", 100),
-    // bcrypt only reads the first 72 bytes, so a longer password would be silently cut.
-    password: z.string().min(10, "Use at least 10 characters").max(72, "Use 72 characters or fewer"),
+    password: passwordField(),
   })
   .strict();
 

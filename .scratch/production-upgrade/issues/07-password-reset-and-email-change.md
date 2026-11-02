@@ -4,10 +4,10 @@
 
 **Blocked by:** 04, 05
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Reset request always returns a generic 200. The link expires after 1 hour, works once, and completing it revokes the user's other sessions
-- [ ] Reset is limited to 3 per hour per email and 10 per hour per IP
-- [ ] Email change applies only after confirmation from the new address, then revokes sessions
-- [ ] Reset requested, reset completed and email change are written to the audit log
-- [ ] Tests cover each rule above
+- [x] Reset request always returns a generic 200. The link expires after 1 hour, works once, and completing it revokes the user's other sessions
+- [x] Reset is limited to 3 per hour per email and 10 per hour per IP
+- [x] Email change applies only after confirmation from the new address, then revokes sessions
+- [x] Reset requested, reset completed and email change are written to the audit log
+- [x] Tests cover each rule above

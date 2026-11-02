@@ -4,11 +4,13 @@ import { Suspense } from "react";
 import { isAdmin, requirePageUser } from "@/lib/auth";
 import { overdueCount } from "@/lib/tickets/overdue";
 import { aiBudget } from "@/lib/triage";
+import { listTeamPresence } from "@/lib/users/availability";
 import { AiBudgetChip } from "./_components/ai-budget-chip";
 import { Wordmark } from "../_components/logo";
 import { BandSearch } from "./_components/band-search";
 import { InboxKeys } from "./_components/inbox-keys";
 import { LiveStatusChip, LiveUpdates } from "./_components/live-updates";
+import { PresenceMenu } from "./_components/presence-menu";
 import { ViewTabs } from "./_components/view-tabs";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +37,7 @@ function SpeedStripe() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requirePageUser();
-  const [overdue, budget] = await Promise.all([overdueCount(), aiBudget()]);
+  const [overdue, budget, team] = await Promise.all([overdueCount(), aiBudget(), listTeamPresence()]);
   const initials = user.name
     .split(/\s+/)
     .map((p) => p[0])
@@ -70,6 +72,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
             <div className="order-2 mb-2.5 ml-auto flex items-center gap-2 sm:gap-3 md:order-4 md:ml-0">
               <LiveStatusChip />
+              <PresenceMenu meId={user.id} team={team} admin={isAdmin(user)} />
               <AiBudgetChip budget={budget} href={isAdmin(user) ? "/admin/ai" : undefined} />
               {overdue > 0 && (
                 <Link
@@ -101,14 +104,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <span className="sr-only sm:hidden">New ticket</span>
               </Link>
               <div className="flex items-center gap-2 border-l border-white/25 pl-3">
-                <span
+                <Link
+                  href="/account"
+                  tabIndex={-1}
                   aria-hidden="true"
-                  className="grid size-7 place-items-center rounded-full border border-white/60 font-display text-xs font-semibold tracking-wider"
+                  className="grid size-7 place-items-center rounded-full border border-white/60 font-display text-xs font-semibold tracking-wider hover:bg-white/10"
                 >
                   {initials}
-                </span>
+                </Link>
                 <span className="hidden flex-col leading-tight lg:flex">
-                  <span className="text-sm font-medium">{user.name}</span>
+                  <Link href="/account" className="text-sm font-medium hover:underline" title="Your account">
+                    {user.name}
+                  </Link>
                   <span className="font-display text-2xs font-semibold uppercase tracking-[0.1em] text-band-ink">
                     {isAdmin(user) ? "Admin" : "Agent"}
                   </span>

@@ -1,5 +1,6 @@
 import postgres from "postgres";
-import { seedUsers } from "../scripts/seed.mjs";
+import bcrypt from "bcryptjs";
+import { SEED_USERS, seedUsers } from "../scripts/seed.mjs";
 
 /** One password per seeded account, as in production (SEED_PASSWORD_<NAME>). */
 export const TEST_PASSWORDS = {
@@ -38,12 +39,32 @@ export async function giveTicketTo(ticketId: number, email = "alice@sift.local")
   }
 }
 
-/** Seeds the five staff accounts with the test passwords above, active, with fresh rate limits. */
+// One hash per test password, computed once (the seed never overwrites an existing password).
+const testHashes = new Map<string, string>();
+async function testHash(password: string) {
+  if (!testHashes.has(password)) testHashes.set(password, await bcrypt.hash(password, 4));
+  return testHashes.get(password)!;
+}
+
+/**
+ * Seeds the five staff accounts and puts them back as seeded: test password, name, role, active,
+ * with fresh rate limits. The seed itself leaves existing accounts alone, so tests reset them here.
+ * They start Away, so new tickets land in the pool unless a test makes someone available
+ * (auto-assignment is covered in auto-assign.test.ts).
+ */
 export async function seedTestUsers() {
   await seedUsers(process.env.DATABASE_URL!, TEST_PASSWORDS);
   const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
   try {
-    await sql`update users set deactivated_at = null where email like '%@sift.local'`;
+    for (const u of SEED_USERS) {
+      const [user] = await sql`
+        update users set name = ${u.name}, role = ${u.role}, deactivated_at = null, availability = 'away'
+        where email = ${u.email} returning id`;
+      await sql`
+        update account set password = ${await testHash(TEST_PASSWORDS[u.key])}
+        where user_id = ${user.id} and provider_id = 'credential'`;
+    }
+    await sql`update users set availability = 'away' where email like '%@sift.local'`;
   } finally {
     await sql.end();
   }
