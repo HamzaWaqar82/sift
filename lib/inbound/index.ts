@@ -10,6 +10,7 @@ import { inboundBounces, messages, tickets, type TicketSource } from "@/lib/db/s
 import { publish } from "@/lib/events";
 import { suppressEmail } from "@/lib/mail/suppression";
 import { createTicket } from "@/lib/tickets";
+import { autoAssign } from "@/lib/tickets/auto-assign";
 import { cleanLine, cleanText } from "@/lib/text";
 
 /** An inbound email reduced to what we store. */
@@ -120,17 +121,24 @@ async function appendReply(ticketId: number, mail: InboundMail): Promise<IngestR
     // Lost a race with a concurrent delivery of the same email.
     if (!message) return { kind: "duplicate", ticketId } as const;
 
-    const [before] = await tx.select({ status: tickets.status }).from(tickets).where(eq(tickets.id, ticketId)).for("update");
+    const [before] = await tx
+      .select({ status: tickets.status, assigneeId: tickets.assigneeId })
+      .from(tickets)
+      .where(eq(tickets.id, ticketId))
+      .for("update");
     const reopened = before.status === "replied" || before.status === "closed";
     await tx
       .update(tickets)
       .set({ ...(reopened ? { status: "open" as const } : {}), lastInboundAt: message.occurredAt, updatedAt: sql`now()` })
       .where(eq(tickets.id, ticketId));
+    // A pooled ticket the customer writes on again is routed like a new one.
+    const assigneeId = before.assigneeId === null ? await autoAssign(tx, ticketId) : null;
     await publish(
       { type: "message.created", ticketId, messageId: message.id, direction: "inbound", authorId: null, authorName: null },
       tx,
     );
     if (reopened) await publish({ type: "ticket.updated", ticketId, status: "open" }, tx);
+    if (assigneeId !== null) await publish({ type: "ticket.assigned", ticketId, assigneeId }, tx);
     return { kind: "appended", ticketId, reopened } as const;
   });
 }

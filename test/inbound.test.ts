@@ -100,6 +100,20 @@ describe("ingestInboundEmail", () => {
     expect(result).toMatchObject({ kind: "appended", ticketId: created.kind === "ticket" ? created.ticketId : -1 });
   });
 
+  it("a customer reply to a pooled ticket routes it to an available agent", async () => {
+    const { ticketId } = await answeredTicket();
+    await sql`update tickets set assignee_id = null, assigned_by = null where id = ${ticketId}`;
+    await sql`update users set availability = 'available' where email = 'chloe@sift.local'`;
+    try {
+      await ingestInboundEmail(eml("reply-with-headers"));
+    } finally {
+      await sql`update users set availability = 'away'`;
+    }
+    const ticket = await ticketRow(ticketId);
+    expect(ticket.assignee_id).toBe((await sql`select id from users where email = 'chloe@sift.local'`)[0].id);
+    expect(ticket.assigned_by).toBe("auto");
+  });
+
   it("a closed ticket reopens when the customer writes again", async () => {
     const { ticketId } = await answeredTicket();
     await sql`update tickets set status = 'closed' where id = ${ticketId}`;
