@@ -7,7 +7,7 @@ import { getDb } from "@/lib/db";
 import { messages, tickets, type MessageStatus } from "@/lib/db/schema";
 import { publish } from "@/lib/events";
 import { enqueueJob } from "@/lib/jobs/queue";
-import { getMailer } from "@/lib/mail";
+import { getMailer, PermanentMailError } from "@/lib/mail";
 import { suppressionOf } from "@/lib/mail/suppression";
 
 export const MAIL_SEND = "mail.send";
@@ -52,6 +52,11 @@ export async function deliverMessage(messageId: number, attempt: { final: boolea
     });
   } catch (error) {
     const lastError = error instanceof Error ? error.message || error.name : String(error);
+    // Gmail refused the recipient or message outright: retrying for hours would change nothing.
+    if (error instanceof PermanentMailError) {
+      await markFailed(messageId, lastError);
+      return;
+    }
     // The last try leaves the message for onFailed to mark failed; earlier ones go back to queued.
     await db
       .update(messages)

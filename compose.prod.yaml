@@ -22,8 +22,9 @@ x-app-env: &app-env
   SEED_PASSWORD_DEV: ${SEED_PASSWORD_DEV:?set SEED_PASSWORD_DEV}
   # A staging stack sets APP_ENV=staging in its .env; /dev/mailbox never exists in production.
   APP_ENV: ${APP_ENV:-production}
-  # Until the gmail adapter lands (ticket 13) mail is captured; ticket 13 makes gmail mandatory here.
-  MAIL_TRANSPORT: ${MAIL_TRANSPORT:-capture}
+  # Production refuses to start unless mail really goes out through Gmail. GMAIL_USER and
+  # GMAIL_APP_PASSWORD reach the app and worker from .env via env_file (not named here).
+  MAIL_TRANSPORT: ${MAIL_TRANSPORT:-gmail}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sift Support}
 
 services:
@@ -57,6 +58,7 @@ services:
       context: .
       target: runner
     restart: unless-stopped
+    env_file: .env
     environment: *app-env
     networks:
       default:
@@ -74,6 +76,7 @@ services:
       target: runner
     command: ["node", "worker.mjs"]
     restart: unless-stopped
+    env_file: .env
     environment: *app-env
     depends_on:
       migrate:

@@ -4,7 +4,7 @@
 # Usage on the server, from the staging checkout:  docker compose -f compose.staging.yaml up -d --build
 #
 # Every secret (DATABASE_URL, POSTGRES_*, GEMINI_API_KEY, WEBHOOK_SECRET, SESSION_SECRET,
-# APP_BASE_URL, SEED_PASSWORD_*) comes from the hand-made .env next to this file via env_file,
+# APP_BASE_URL, SEED_PASSWORD_*, GMAIL_USER, GMAIL_APP_PASSWORD) comes from the hand-made .env next to this file via env_file,
 # so none is named here (see README "Staging"). The app and the seed fail on first use if one is missing.
 name: sift-staging
 
@@ -14,7 +14,8 @@ x-app-env: &app-env
   AI_DAILY_CAP: ${AI_DAILY_CAP:-30}
   AI_RPM_LIMIT: ${AI_RPM_LIMIT:-4}
   OVERDUE_HOURS: ${OVERDUE_HOURS:-24}
-  # Staging never emails real customers: mail is captured to the dev mailbox.
+  # Staging never emails real customers: mail is captured to the dev mailbox. With
+  # MAIL_TRANSPORT=gmail in .env it really sends, but only to MAIL_ALLOWED_RECIPIENTS.
   APP_ENV: ${APP_ENV:-staging}
   MAIL_TRANSPORT: ${MAIL_TRANSPORT:-capture}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sift Support (staging)}
