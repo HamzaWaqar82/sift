@@ -39,6 +39,13 @@ describe("sample ticket seed", () => {
     );
   });
 
+  it("never seeds sample tickets in production, but does in staging", async () => {
+    expect(await seedSampleTickets(process.env.DATABASE_URL!, new Date(), { APP_ENV: "production" })).toBe(0);
+    expect(await sql`select 1 from tickets`).toHaveLength(0);
+
+    expect(await seedSampleTickets(process.env.DATABASE_URL!, new Date(), { APP_ENV: "staging" })).toBeGreaterThan(0);
+  });
+
   it("spreads ticket ages so some are overdue and some are not", async () => {
     await seedSampleTickets(process.env.DATABASE_URL!);
     const { overdueCount } = await import("@/lib/tickets/overdue");

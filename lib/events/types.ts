@@ -20,6 +20,7 @@ export type SiftEvent =
   | { type: "note.created"; ticketId: number; noteId: number; authorId: number }
   | { type: "triage.updated"; ticketId: number }
   | { type: "overdue.marked"; ticketId: number }
+  | { type: "presence.updated"; userId: number; availability: "available" | "away" }
   | { type: "ai_budget.updated" };
 
 export type SiftEventType = SiftEvent["type"];

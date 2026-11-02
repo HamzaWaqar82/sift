@@ -43,6 +43,11 @@ export function optionalLineField(label: string, max: number) {
 }
 
 /** A lower-cased, trimmed, valid email address (at most 254 characters). */
+/** A new password. bcrypt only reads the first 72 bytes, so a longer one would be silently cut. */
+export function passwordField() {
+  return zod.string().min(10, "Use at least 10 characters").max(72, "Use 72 characters or fewer");
+}
+
 export function emailField(message = "Enter a valid email address") {
   return zod
     .string()

@@ -1,6 +1,7 @@
-// Seeds the staff accounts (4 agents + 1 admin) and the sample tickets (samples/emails.json). There is no sign-up; this is the only way
-// users are created. Idempotent: re-running updates names, roles and password hashes, so
-// changing a SEED_PASSWORD_<NAME> value in the environment and re-running rotates that password.
+// Seeds the staff accounts (4 agents + 1 admin) and, outside production, the sample tickets (samples/emails.json). There is no sign-up; this is the only way
+// users are created besides invitations. Staff accounts are seeded only into an empty users table
+// (the first deploy), and an existing account is never touched, so a deploy cannot undo a password
+// reset, an email change, a rename or a role change.
 // Run by the `migrate` Compose service after migrations, by `npm run db:seed`, and by tests.
 import bcrypt from "bcryptjs";
 import postgres from "postgres";
@@ -24,10 +25,10 @@ export function passwordsFromEnv(env = process.env) {
 }
 
 /**
- * Upserts the staff accounts (marked email-verified) and their Better Auth credential rows in
- * `account` (account_id = users.id::text, the bcrypt hash in `password`). `passwords` is keyed by
- * account key (admin, alice, ben, chloe, dev). Existing users get their hash replaced, so a
- * changed password takes effect on re-seed.
+ * Inserts any missing staff accounts (marked email-verified) and their Better Auth credential rows
+ * in `account` (account_id = users.id::text, the bcrypt hash in `password`). `passwords` is keyed
+ * by account key (admin, alice, ben, chloe, dev). Existing users and their passwords are left as
+ * they are.
  */
 export async function seedUsers(url, passwords) {
   const missing = SEED_USERS.filter((u) => !passwords[u.key]).map((u) => u.passwordEnv);
@@ -37,17 +38,16 @@ export async function seedUsers(url, passwords) {
     for (const u of SEED_USERS) {
       const hash = await bcrypt.hash(passwords[u.key], BCRYPT_COST);
       await sql.begin(async (tx) => {
-        const [{ id }] = await tx`
+        const [inserted] = await tx`
           insert into users (email, name, role, email_verified)
           values (${u.email}, ${u.name}, ${u.role}, true)
-          on conflict (email) do update
-            set name = excluded.name, role = excluded.role, email_verified = true, updated_at = now()
+          on conflict (email) do nothing
           returning id`;
+        if (!inserted) return;
         await tx`
           insert into account (account_id, provider_id, user_id, password)
-          values (${String(id)}, 'credential', ${id}, ${hash})
-          on conflict (provider_id, account_id) do update
-            set password = excluded.password, updated_at = now()`;
+          values (${String(inserted.id)}, 'credential', ${inserted.id}, ${hash})
+          on conflict (provider_id, account_id) do nothing`;
       });
     }
   } finally {
@@ -55,7 +55,28 @@ export async function seedUsers(url, passwords) {
   }
 }
 
+/**
+ * Seeds the staff accounts only when there are no users at all. Once staff exist, a later deploy
+ * must not recreate an account whose email was changed, so the seed does nothing.
+ */
+export async function seedStaffIfEmpty(url, passwords) {
+  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  try {
+    const [{ count }] = await sql`select count(*)::int as count from users`;
+    if (count > 0) return false;
+  } finally {
+    await sql.end();
+  }
+  await seedUsers(url, passwords);
+  return true;
+}
+
 const SAMPLE_EMAILS = new URL("../samples/emails.json", import.meta.url);
+
+/** The demo emails in samples/emails.json (webhook contract shape). */
+export async function sampleEmails() {
+  return JSON.parse(await readFile(SAMPLE_EMAILS, "utf8"));
+}
 
 /**
  * Seeds each sample email (webhook contract shape) as an open, unassigned webhook ticket.
@@ -63,10 +84,12 @@ const SAMPLE_EMAILS = new URL("../samples/emails.json", import.meta.url);
  * The emails in samples/live/ are deliberately NOT seeded; they are posted live in the demo.
  * Ages are relative to the seed run (newest an hour old, the samples' spacing compressed 4x,
  * oldest under 3 days), so a fresh install shows both waiting and overdue tickets.
- * Returns the number of tickets newly created.
+ * Never in production (APP_ENV=production): the samples carry real-looking customer addresses,
+ * and a reply there would email a stranger. Returns the number of tickets newly created.
  */
-export async function seedSampleTickets(url, now = new Date()) {
-  const emails = JSON.parse(await readFile(SAMPLE_EMAILS, "utf8"));
+export async function seedSampleTickets(url, now = new Date(), env = process.env) {
+  if (env.APP_ENV?.trim() === "production") return 0;
+  const emails = await sampleEmails();
   const newest = Math.max(...emails.map((e) => Date.parse(e.received_at)));
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   let created = 0;
@@ -121,8 +144,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error("DATABASE_URL is not set");
     process.exit(1);
   }
-  seedUsers(url, passwordsFromEnv())
-    .then(() => console.log(`seeded ${SEED_USERS.length} users`))
+  seedStaffIfEmpty(url, passwordsFromEnv())
+    .then((seeded) => console.log(seeded ? `seeded ${SEED_USERS.length} users` : "users exist; staff seed skipped"))
     .then(() => seedSampleTickets(url))
     .then((n) => console.log(`seeded ${n} new sample tickets`))
     .then(() => seedHelpArticles(url))

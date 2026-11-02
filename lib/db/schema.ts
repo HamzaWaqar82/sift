@@ -477,3 +477,28 @@ export const invitations = pgTable(
   },
   (t) => [index("invitations_email_idx").on(t.email)],
 );
+
+export const accountTokenPurpose = pgEnum("account_token_purpose", ["password_reset", "email_change"]);
+
+/**
+ * Emailed one-time links: a password reset (1 hour) or confirming a new email address. Only the
+ * SHA-256 of the token is stored; the token is rebuilt from id and nonce (lib/auth/account-tokens.ts).
+ */
+export const accountTokens = pgTable(
+  "account_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: accountTokenPurpose("purpose").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    nonce: text("nonce").notNull(),
+    /** The address being confirmed (email change only). */
+    newEmail: text("new_email"),
+    createdAt: tsMs("created_at").notNull().defaultNow(),
+    expiresAt: tsMs("expires_at").notNull(),
+    usedAt: tsMs("used_at"),
+  },
+  (t) => [index("account_tokens_user_idx").on(t.userId)],
+);
