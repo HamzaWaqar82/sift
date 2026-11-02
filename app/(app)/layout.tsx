@@ -101,14 +101,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <span className="sr-only sm:hidden">New ticket</span>
               </Link>
               <div className="flex items-center gap-2 border-l border-white/25 pl-3">
-                <span
+                <Link
+                  href="/account"
+                  tabIndex={-1}
                   aria-hidden="true"
-                  className="grid size-7 place-items-center rounded-full border border-white/60 font-display text-xs font-semibold tracking-wider"
+                  className="grid size-7 place-items-center rounded-full border border-white/60 font-display text-xs font-semibold tracking-wider hover:bg-white/10"
                 >
                   {initials}
-                </span>
+                </Link>
                 <span className="hidden flex-col leading-tight lg:flex">
-                  <span className="text-sm font-medium">{user.name}</span>
+                  <Link href="/account" className="text-sm font-medium hover:underline" title="Your account">
+                    {user.name}
+                  </Link>
                   <span className="font-display text-2xs font-semibold uppercase tracking-[0.1em] text-band-ink">
                     {isAdmin(user) ? "Admin" : "Agent"}
                   </span>

@@ -12,6 +12,10 @@ export type AuditAction =
   | "invite_resent"
   | "invite_accepted"
   | "invite_revoked"
+  | "password_reset_requested"
+  | "password_reset_completed"
+  | "email_change_requested"
+  | "email_changed"
   | "ticket_claimed"
   | "ticket_released";
 
