@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedHelpArticles } from "../scripts/seed.mjs";
-import { seedTestUsers, signInAs, giveTicketTo } from "./helpers";
+import { giveTicketTo, seedTestUsers, signInAs, triageViaApi } from "./helpers";
 
 vi.mock("@/lib/triage/provider", () => ({ runTriageModel: vi.fn() }));
 import { runTriageModel } from "@/lib/triage/provider";
@@ -21,7 +21,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await sql`truncate tickets restart identity cascade`;
-  await sql`truncate ai_usage`;
+  await sql`truncate ai_usage, jobs`;
   provider.mockReset();
   const { createTicket } = await import("@/lib/tickets");
   ticketId = (
@@ -86,8 +86,7 @@ describe("internal notes", () => {
       rawText: JSON.stringify({ category: "billing", urgency: "low", draft: "Hello", article_id: "duplicate-charges-and-refunds" }),
       model: "fake-model",
     });
-    const { POST } = await import("@/app/api/tickets/[id]/triage/route");
-    await POST(new Request(`http://localhost/api/tickets/${ticketId}/triage`, { method: "POST", headers: { cookie: alice } }), ctx(ticketId));
+    await triageViaApi(ticketId, alice);
 
     expect(provider).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(provider.mock.calls[0][0])).not.toContain("journalist");

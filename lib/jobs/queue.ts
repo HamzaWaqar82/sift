@@ -4,7 +4,7 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { jobs } from "@/lib/db/schema";
-import { backoffFor, type JobContext, jobHandler } from "./registry";
+import { backoffFor, type JobContext, jobHandler, RetryLater } from "./registry";
 
 type Db = ReturnType<typeof getDb>;
 /** The shared client or an open transaction, so a job can be enqueued atomically with its cause. */
@@ -43,7 +43,8 @@ export const STALE_LOCK_MS = 10 * 60 * 1000;
 const MAX_ERROR_LENGTH = 2000;
 const STALE_LOCK_ERROR = "Lock expired: the worker stopped while running this job";
 
-export type RunSummary = { succeeded: number; retried: number; failed: number; recovered: number };
+/** `deferred`: jobs that asked to run later (RetryLater) without using an attempt. */
+export type RunSummary = { succeeded: number; retried: number; deferred: number; failed: number; recovered: number };
 
 type ClaimedRow = { id: number; kind: string; payload: unknown; attempts: number; max_attempts: number };
 
@@ -54,7 +55,7 @@ type ClaimedRow = { id: number; kind: string; payload: unknown; attempts: number
  */
 export async function runDueJobs(options: { staleLockMs?: number } = {}): Promise<RunSummary> {
   const db = getDb();
-  const summary: RunSummary = { succeeded: 0, retried: 0, failed: 0, recovered: 0 };
+  const summary: RunSummary = { succeeded: 0, retried: 0, deferred: 0, failed: 0, recovered: 0 };
 
   summary.recovered = await recoverStaleLocks(options.staleLockMs ?? STALE_LOCK_MS, summary);
 
@@ -79,7 +80,7 @@ export async function runDueJobs(options: { staleLockMs?: number } = {}): Promis
   return summary;
 }
 
-async function runOne(row: ClaimedRow): Promise<"succeeded" | "retried" | "failed"> {
+async function runOne(row: ClaimedRow): Promise<"succeeded" | "retried" | "deferred" | "failed"> {
   const db = getDb();
   const ctx: JobContext = { id: row.id, kind: row.kind, attempts: row.attempts, maxAttempts: row.max_attempts };
   const handler = jobHandler(row.kind);
@@ -88,6 +89,14 @@ async function runOne(row: ClaimedRow): Promise<"succeeded" | "retried" | "faile
     await handler.run(row.payload, ctx);
   } catch (error) {
     const message = errorMessage(error);
+    if (handler && error instanceof RetryLater) {
+      // Hand the claimed attempt back: waiting on a limit is not a failed try.
+      await db.execute(sql`
+        update jobs set status = 'queued', locked_at = null, last_error = ${message},
+          attempts = attempts - 1, run_at = ${error.runAt.toISOString()}::timestamptz
+        where id = ${row.id}`);
+      return "deferred";
+    }
     if (handler && row.attempts < row.max_attempts) {
       const delay = backoffFor(handler, row.attempts);
       await db.execute(sql`

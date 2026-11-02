@@ -15,7 +15,7 @@ export const jobLoop: WorkerService = {
   async run(signal) {
     while (!signal.aborted) {
       const summary = await runDueJobs();
-      const busy = summary.succeeded + summary.retried + summary.failed > 0;
+      const busy = summary.succeeded + summary.retried + summary.deferred + summary.failed > 0;
       if (busy) console.log("[worker] jobs", JSON.stringify(summary));
       await pause(busy ? 0 : JOB_POLL_INTERVAL_MS, signal);
     }

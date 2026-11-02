@@ -3,3 +3,4 @@
 import "./mail-send";
 import "./mail-test";
 import "./mail-invite";
+import "./triage";
