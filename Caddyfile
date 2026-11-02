@@ -1,6 +1,7 @@
 {$PUBLIC_HOSTNAME} {
 	encode gzip
-	reverse_proxy app:3000
+	# Never `app`: on the shared sift-edge network that name also resolves to staging's app.
+	reverse_proxy sift-prod-app:3000
 }
 
 # Staging app from the sift-staging Compose project, over the shared sift-edge network.
