@@ -1,4 +1,4 @@
-// Seeds the staff accounts (4 agents + 1 admin) and the sample tickets (samples/emails.json). There is no sign-up; this is the only way
+// Seeds the staff accounts (4 agents + 1 admin) and, outside production, the sample tickets (samples/emails.json). There is no sign-up; this is the only way
 // users are created. Idempotent: re-running updates names, roles and password hashes, so
 // changing a SEED_PASSWORD_<NAME> value in the environment and re-running rotates that password.
 // Run by the `migrate` Compose service after migrations, by `npm run db:seed`, and by tests.
@@ -57,16 +57,23 @@ export async function seedUsers(url, passwords) {
 
 const SAMPLE_EMAILS = new URL("../samples/emails.json", import.meta.url);
 
+/** The demo emails in samples/emails.json (webhook contract shape). */
+export async function sampleEmails() {
+  return JSON.parse(await readFile(SAMPLE_EMAILS, "utf8"));
+}
+
 /**
  * Seeds each sample email (webhook contract shape) as an open, unassigned webhook ticket.
  * Idempotent: keyed on the email's message_id, so re-running never duplicates or overwrites.
  * The emails in samples/live/ are deliberately NOT seeded; they are posted live in the demo.
  * Ages are relative to the seed run (newest an hour old, the samples' spacing compressed 4x,
  * oldest under 3 days), so a fresh install shows both waiting and overdue tickets.
- * Returns the number of tickets newly created.
+ * Never in production (APP_ENV=production): the samples carry real-looking customer addresses,
+ * and a reply there would email a stranger. Returns the number of tickets newly created.
  */
-export async function seedSampleTickets(url, now = new Date()) {
-  const emails = JSON.parse(await readFile(SAMPLE_EMAILS, "utf8"));
+export async function seedSampleTickets(url, now = new Date(), env = process.env) {
+  if (env.APP_ENV?.trim() === "production") return 0;
+  const emails = await sampleEmails();
   const newest = Math.max(...emails.map((e) => Date.parse(e.received_at)));
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   let created = 0;
