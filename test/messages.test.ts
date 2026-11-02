@@ -280,8 +280,8 @@ describe("migrations", () => {
     }
   }, 60_000); // creating a scratch database on the shared server can be slow
 
-  it("0015 drops tickets.body and replies, first copying anything messages lacks", async () => {
-    const db = await freshDbBefore(15);
+  it("0016 drops tickets.body and replies, first copying anything messages lacks", async () => {
+    const db = await freshDbBefore(16);
     try {
       const [u] = await db`insert into users (email, name, role, email_verified) values ('a@x', 'A', 'agent', true) returning id`;
       const t0 = new Date("2026-01-01T10:00:00.123Z");
