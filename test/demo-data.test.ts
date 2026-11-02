@@ -31,8 +31,8 @@ describe("clearing demo tickets", () => {
     const [author] = await sql`select id from users limit 1`;
     await sql`insert into internal_notes (ticket_id, author_id, body) values (${demo.id}, ${author.id}, 'note')`;
     await sql`insert into triage_results (ticket_id, error, model) values (${demo.id}, 'boom', 'm')`;
-    await sql`insert into jobs (kind, payload) values ('triage.auto', ${sql.json({ ticketId: demo.id })}),
-                                                    ('triage.auto', ${sql.json({ ticketId: real.id })})`;
+    // createTicket already queued the real ticket's automatic triage; give a demo ticket one too.
+    await sql`insert into jobs (kind, payload) values ('triage.auto', ${sql.json({ ticketId: demo.id })})`;
 
     expect(await clearDemoTickets(url)).toBe(seeded);
     expect(await sql`select id from tickets`).toEqual([{ id: real.id }]);
