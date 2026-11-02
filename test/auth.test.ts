@@ -154,15 +154,20 @@ describe("seed", () => {
     for (const r of rows) expect([r.email, r.email_verified, r.accounts]).toEqual([r.email, true, 1]);
   });
 
-  it("re-seeding with a changed password updates the existing user's hash", async () => {
+  // Deploys re-run the seed, so it must never undo a password reset, role change or rename.
+  it("re-seeding never overwrites an existing user's password, name or role", async () => {
+    const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
     try {
+      await sql`update users set name = 'Ben Renamed', role = 'admin' where email = 'ben@sift.local'`;
       await seedUsers(process.env.DATABASE_URL!, { ...TEST_PASSWORDS, ben: "rotated-ben-password" });
 
-      expect((await signIn("ben@sift.local", "rotated-ben-password")).status).toBe(200);
-      expect((await signIn("ben@sift.local", TEST_PASSWORDS.ben)).status).toBe(401);
-      expect((await signIn("alice@sift.local", TEST_PASSWORDS.alice)).status).toBe(200);
+      expect((await signIn("ben@sift.local", TEST_PASSWORDS.ben)).status).toBe(200);
+      expect((await signIn("ben@sift.local", "rotated-ben-password")).status).toBe(401);
+      const [ben] = await sql`select name, role from users where email = 'ben@sift.local'`;
+      expect(ben).toEqual({ name: "Ben Renamed", role: "admin" });
     } finally {
       await seedTestUsers();
+      await sql.end();
     }
   });
 

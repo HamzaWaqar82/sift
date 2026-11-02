@@ -16,6 +16,12 @@ export const INVITE_SEND_LIMIT: Limit = { max: 20, windowMs: 24 * 60 * 60 * 1000
 /** Invite accept: 10 attempts per hour per IP, successful or not. */
 export const INVITE_ACCEPT_LIMIT: Limit = { max: 10, windowMs: 60 * 60 * 1000 };
 
+/** Password reset: 3 requests per hour per email. */
+export const RESET_EMAIL_LIMIT: Limit = { max: 3, windowMs: 60 * 60 * 1000 };
+
+/** Password reset: 10 attempts per hour per IP, requests and completions counted together. */
+export const RESET_IP_LIMIT: Limit = { max: 10, windowMs: 60 * 60 * 1000 };
+
 /**
  * Client address. In production only Caddy can reach the app, and Caddy overwrites
  * X-Forwarded-For with the real client IP, so the first entry is trustworthy there.
