@@ -38,12 +38,16 @@ export async function giveTicketTo(ticketId: number, email = "alice@sift.local")
   }
 }
 
-/** Seeds the five staff accounts with the test passwords above, active, with fresh rate limits. */
+/**
+ * Seeds the five staff accounts with the test passwords above, active, with fresh rate limits.
+ * They start Away, so new tickets land in the pool unless a test makes someone available
+ * (auto-assignment is covered in auto-assign.test.ts).
+ */
 export async function seedTestUsers() {
   await seedUsers(process.env.DATABASE_URL!, TEST_PASSWORDS);
   const sql = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
   try {
-    await sql`update users set deactivated_at = null where email like '%@sift.local'`;
+    await sql`update users set deactivated_at = null, availability = 'away' where email like '%@sift.local'`;
   } finally {
     await sql.end();
   }
