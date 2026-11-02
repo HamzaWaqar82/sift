@@ -68,7 +68,7 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
       <div>
         <div className="tab-row pl-4">
           <span className="tab" data-tone="navy">
-            {ticket.source === "webhook" ? "Email" : "Form"} ticket
+            {ticket.source === "form" ? "Form" : "Email"} ticket
           </span>
           {triage ? (
             <>
