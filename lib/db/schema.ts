@@ -163,6 +163,12 @@ export const tickets = pgTable(
     /** Who the ticket was last released to the pool from, and why (kept as history after a new claim). */
     releasedFromUserId: integer("released_from_user_id").references(() => users.id, { onDelete: "set null" }),
     releaseReason: text("release_reason"),
+    /** When the current owner got the ticket; the ack timeout counts from here for auto assignments. */
+    assignedAt: tsMs("assigned_at"),
+    /** When the owner first opened the ticket since it was auto-assigned to them. */
+    firstOpenedAt: tsMs("first_opened_at"),
+    /** Set by the overdue sweep when it releases the ticket; cleared once it stops being overdue. */
+    overdueSince: tsMs("overdue_since"),
   },
   (t) => [
     index("tickets_created_at_id_idx").on(t.createdAt.desc(), t.id.desc()),
