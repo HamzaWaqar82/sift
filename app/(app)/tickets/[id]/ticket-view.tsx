@@ -3,6 +3,7 @@ import { getPageUser, isAdmin } from "@/lib/auth";
 import { listMessages } from "@/lib/messages";
 import { listNotes } from "@/lib/notes";
 import { getTicket, listAssignableUsers } from "@/lib/tickets";
+import { markOpened } from "@/lib/tickets/sweeps";
 import { ticketPermission } from "@/lib/tickets/permissions";
 import { getLatestAttempt, getTriageState } from "@/lib/triage";
 import { LABELS } from "../../_lib/params";
@@ -37,6 +38,7 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
       </p>
     );
   }
+  if (ticket.assigneeId === user.id) await markOpened(ticket.id, user.id);
   const admin = isAdmin(user);
   const [messages, notes, latest, triageState, users] = await Promise.all([
     listMessages(ticket.id),
@@ -139,7 +141,7 @@ export async function TicketView({ id, embedded = false }: { id: number; embedde
                   {!ticket.assignee && ticket.releasedFrom && (
                     <p className="mt-2.5 text-sm text-ink-2">
                       Released from <span className="font-medium text-ink">{ticket.releasedFrom.name}</span>
-                      {ticket.releaseReason ? <>: {ticket.releaseReason}</> : "."}
+                      {ticket.releaseReason ? <> ({ticket.releaseReason})</> : "."}
                     </p>
                   )}
                 </div>
