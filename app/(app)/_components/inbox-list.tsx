@@ -36,7 +36,7 @@ export function InboxList({
             ? "border-ink-3 bg-panel-2 md:border-white/40 md:bg-ink md:[&_.num]:!text-white"
             : "border-ink-3 bg-panel-2";
         return (
-          <li key={t.id}>
+          <li key={t.id} data-ticket-id={t.id}>
             <Link
               href={hrefWith(params, { ticket: String(t.id) })}
               scroll={false}
