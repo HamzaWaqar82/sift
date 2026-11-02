@@ -132,6 +132,13 @@ export function parseIntId(raw: string): number | null {
   return id > 0 && id <= 2_147_483_647 ? id : null;
 }
 
+/** 429 with a `Retry-After` header, for rate-limited endpoints. */
+export function rateLimited(message: string, retryAfterSeconds: number): NextResponse {
+  const res = apiError(429, message, { code: "rate_limited" });
+  res.headers.set("retry-after", String(retryAfterSeconds));
+  return res;
+}
+
 /**
  * A redirect that never embeds a host: the Location is the given relative path, so the browser
  * resolves it against the public origin it actually used. The app binds 0.0.0.0 behind Caddy,

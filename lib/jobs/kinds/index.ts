@@ -2,4 +2,5 @@
 // assign.ack_timeout, ticket.overdue_sweep) add one import line here.
 import "./mail-send";
 import "./mail-test";
+import "./mail-invite";
 import "./triage";

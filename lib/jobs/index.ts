@@ -6,3 +6,4 @@ export type { EnqueueOptions, JobExecutor, RunSummary } from "./queue";
 export { DEFAULT_BACKOFF_SECONDS, registerJobHandler, RetryLater } from "./registry";
 export type { JobContext, JobHandler } from "./registry";
 export { MAIL_TEST } from "./kinds/mail-test";
+export { MAIL_INVITE } from "./kinds/mail-invite";

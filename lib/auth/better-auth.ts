@@ -12,6 +12,9 @@ import { COOKIE_PREFIX } from "./cookie";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days, absolute
 const BCRYPT_COST = 10;
 
+/** Hashes a password the way Better Auth stores and checks credentials. */
+export const hashPassword = (password: string) => bcrypt.hash(password, BCRYPT_COST);
+
 function secret(): string {
   const value = process.env.SESSION_SECRET;
   if (!value || value.length < 32) throw new Error("SESSION_SECRET must be set to at least 32 characters");
@@ -41,7 +44,7 @@ function createAuth() {
       // Teammates join by invitation only.
       disableSignUp: true,
       password: {
-        hash: (password) => bcrypt.hash(password, BCRYPT_COST),
+        hash: hashPassword,
         verify: ({ hash, password }) => bcrypt.compare(password, hash),
       },
     },

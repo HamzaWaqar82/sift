@@ -1,13 +1,14 @@
 {$PUBLIC_HOSTNAME} {
+	# Never `app`: on the shared sift-edge network that name also resolves to staging's app.
 	# Live updates (SSE): no compression and flush every write, so events arrive at once.
 	handle /api/events {
-		reverse_proxy app:3000 {
+		reverse_proxy sift-prod-app:3000 {
 			flush_interval -1
 		}
 	}
 	handle {
 		encode gzip
-		reverse_proxy app:3000
+		reverse_proxy sift-prod-app:3000
 	}
 }
 
