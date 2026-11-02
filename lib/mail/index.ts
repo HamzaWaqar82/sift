@@ -4,8 +4,10 @@
 //   gmail   - the dedicated Gmail account over SMTP (lib/mail/gmail.ts). Outside production it
 //             only mails MAIL_ALLOWED_RECIPIENTS and captures the rest (lib/mail/allowlist.ts).
 // Callers always go through getMailer(); tests swap in a FakeMailer with setMailer().
+// In production every mailer is wrapped in DemoRecipientGuard (no mail to sample addresses).
 import { AllowlistMailer } from "./allowlist";
 import { CaptureMailer } from "./capture";
+import { DemoRecipientGuard } from "./demo-guard";
 import { appEnv, assertMailConfig, gmailCredentials, type Mailer, mailTransport } from "./config";
 import { FakeMailer } from "./fake";
 import { GmailMailer, gmailSmtpOptions } from "./gmail";
@@ -19,7 +21,11 @@ let cached: { key: string; mailer: Mailer } | undefined;
 
 /** The mailer for this process: the test override if set, else the MAIL_TRANSPORT adapter. */
 export function getMailer(): Mailer {
-  if (override) return override;
+  const mailer = override ?? configuredMailer();
+  return appEnv() === "production" ? new DemoRecipientGuard(mailer) : mailer;
+}
+
+function configuredMailer(): Mailer {
   assertMailConfig();
   const transport = mailTransport();
   const key = `${transport}:${appEnv()}:${process.env.GMAIL_USER}:${process.env.MAIL_ALLOWED_RECIPIENTS}`;
